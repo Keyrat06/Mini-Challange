@@ -1,79 +1,77 @@
-import tensorflow as tf
-import numpy as np
-import math
-#import matplotlib.pyplot as plt
-import os
 import random
+import os
+import numpy as np
 from tqdm import tqdm
-np.random.seed(0)
+import tensorflow as tf
+#import matplotlib.pyplot as plt
+#plt.ion
 
 #------Functions T0 Simplify Life!-------------#
 def conv2d(x, W, padding = 'SAME'):
-  return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding=padding)
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding=padding)
 
 def weight_variable(shape):
-  initial = tf.truncated_normal(shape, stddev=0.1)
-  return tf.Variable(initial)
+    initial = tf.truncated_normal(shape, stddev=0.1)
+    return tf.Variable(initial)
 
 def bias_variable(shape):
-  initial = tf.constant(0.1, shape=shape)
-  return tf.Variable(initial)
+    initial = tf.constant(0.1, shape=shape)
+    return tf.Variable(initial)
 
-# Load data
+
+def to_onehot(labels, nclasses=100):
+    outlabels = np.zeros((len(labels), nclasses))
+    for i, l in enumerate(labels):
+        outlabels[i, l] = 1
+    return outlabels
+
+#--------------------NOTES--------------------#
 '''
 TO BE DONE: 
 1. Store images as fp16 between 0.0 to 1.0 (saves processing time)
 2. Try using elu instead of relu6 (claimed to be better)
 3. Try using adaptive gradient optimizer 
 '''
+
 # Load train data
 trainData = np.load('trainData.npz')
 train = trainData['arr_0']
 trainlabels = trainData['arr_1']
 train = train.astype('float16')
-train = train/255.0
-"""
-train = train/255.0 does the same thing as this loop
-
-for i in range(0, 100000):
+trainOneHot = to_onehot(trainlabels, 100)
+for i in tqdm(range(0, 100000), ascii=True):
     train[i] = train[i]/255.0
-"""
+
 # Load validation data
 validData = np.load('validData.npz')
 valid = validData['arr_0']
 validlabels = validData['arr_1']
 valid = valid.astype('float16')
-valid = valid/255.0
-"""
-for i in range(0, 10000):
+validOneHot = to_onehot(validlabels, 100)
+for i in tqdm(range(0, 10000), ascii=True):
     valid[i] = valid[i]/255.0
-"""
 
 
 # Load test set. We don't need it for now (save loading time)
 #testData = np.load('testData.npz')
 #test = testData['arr_0']
-print("IMAGES LOADED")
+# names = [""]*100
+# with open('labels.txt','r') as labelFile:
+#     for i,line in enumerate(labelFile.readlines()):
+#         names[i] = line.strip('\n')
 
-def to_onehot(labels,nclasses=100):
-    outlabels = np.zeros((len(labels),nclasses))
-    for i,l in enumerate(labels):
-        outlabels[i,l] = 1
-    return outlabels
-
-trainOneHot = to_onehot(trainlabels,100)
-validOneHot = to_onehot(validlabels,100)
 
 # ----------------- Model ---------------------#
 # These will be inputs
 ## Input pixels, image with one channel (gray)
 x = tf.placeholder("float", [None, 128, 128, 3])
-# Note that -1 is for reshaping
-x_im = tf.reshape(x, [-1,128,128,3])
+
+# # Note that -1 is for reshaping
+# x_im = tf.reshape(x, [-1,128,128,3])
 ## Known labels
 # None works during variable creation to be
 # unspecified size
-y_ = tf.placeholder("float", [None,100])
+y_ = tf.placeholder("float", [None, 100])
 
 # 128 X 128 X 3
 # Conv layer 1
@@ -82,7 +80,7 @@ winx1 = 3
 winy1 = 3
 W1 = weight_variable([winx1, winy1, 3, num_filters1])
 b1 = bias_variable([num_filters1])
-h1 = tf.nn.elu(conv2d(x_im, W1) + b1)
+h1 = tf.nn.elu(conv2d(x, W1) + b1)
 #W1 = tf.Variable(tf.truncated_normal(
 #    [winx1, winy1, 3 , num_filters1],
 #    stddev=0.2/math.sqrt(winx1*winy1)))
@@ -99,7 +97,7 @@ winx2 = 3
 winy2 = 3
 W2 = weight_variable([winx2, winy2, num_filters1, num_filters2])
 b2 = bias_variable([num_filters2])
-h2 = tf.nn.elu(conv2d(h1, W2,'VALID') + b2)
+h2 = tf.nn.elu(conv2d(h1, W2, 'VALID') + b2)
 #W2 = tf.Variable(tf.truncated_normal(
 #    [winx2, winy2, num_filters1, num_filters2],
 #    stddev=0.2/math.sqrt(winx2*winy2)))
@@ -116,7 +114,7 @@ winx3 = 3
 winy3 = 3
 W3 = weight_variable([winx3, winy3, num_filters2, num_filters3])
 b3 = bias_variable([num_filters3])
-h3 = tf.nn.elu(conv2d(h2, W3,'SAME') + b3)
+h3 = tf.nn.elu(conv2d(h2, W3, 'SAME') + b3)
 #W3 = tf.Variable(tf.truncated_normal(
 #    [winx3, winy3, num_filters2, num_filters3],
 #    stddev=0.2/math.sqrt(winx3*winy3)))
@@ -130,9 +128,7 @@ h3 = tf.nn.elu(conv2d(h2, W3,'SAME') + b3)
 
 # 126 X 126 X 64
 #3x3 Max pooling, no padding on edges
-p1 = tf.nn.max_pool(h3, ksize=[1, 3, 3, 1],
-        strides=[1, 2, 2, 1], padding='VALID')
-                 
+p1 = tf.nn.max_pool(h3, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='VALID')
 
 # 62 X 62 X 64
 num_filters4 = 128
@@ -169,24 +165,21 @@ h5 = tf.nn.elu(conv2d(h4, W5, 'VALID') + b5)
 
 # 60 X 60 X 80
 # 2x2 Max pooling, no padding on edges
-p2 = tf.nn.max_pool(h5, ksize=[1, 2, 2, 1],
-     strides=[1, 2, 2, 1], padding='VALID')
+p2 = tf.nn.max_pool(h5, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
 
 # Input is now about 30x30x192
 # Need to flatten convolutional output
-p2_size = np.product(
-        [s.value for s in p2.get_shape()[1:]])
-p2f = tf.reshape(p2, [-1, p2_size ])
+p2_size = np.product([s.value for s in p2.get_shape()[1:]])
+p2f = tf.reshape(p2, [-1, p2_size])
 
 # Dense layer
 num_hidden_a = 256
-W6a = tf.Variable(tf.truncated_normal([p2_size, num_hidden_a],stddev=0.1))
+W6a = tf.Variable(tf.truncated_normal([p2_size, num_hidden_a], stddev=0.1))
 #W6a = tf.Variable(tf.truncated_normal(
 #     [p2_size, num_hidden_a],
 #     stddev=0.2/math.sqrt(p2_size)))
-b6a = tf.Variable(tf.constant(random.uniform(0,1.0),
-     shape=[num_hidden_a]))
-h6a = tf.nn.elu(tf.matmul(p2f,W6a) + b6a)
+b6a = tf.Variable(tf.constant(random.uniform(0, 1.0), shape=[num_hidden_a]))
+h6a = tf.nn.elu(tf.matmul(p2f, W6a) + b6a)
 
 # Drop out training
 keep_prob = tf.placeholder("float")
@@ -197,17 +190,18 @@ W7 = tf.Variable(tf.truncated_normal([num_hidden_a, 100], stddev=0.1))
 #W7 = tf.Variable(tf.truncated_normal(
 #     [num_hidden_a, 100],
 #     stddev=0.1/math.sqrt(num_hidden_a)))
-b7 = tf.Variable(tf.constant(0.1,shape=[100]))
-y_logit = tf.matmul(h6_drop,W7) + b7
+b7 = tf.Variable(tf.constant(0.1, shape=[100]))
+y_logit = tf.matmul(h6_drop, W7) + b7
 
 #-------------------- End model specification ----------------#
 
 # Climb on cross-entropy
 # (CHIHEEM) - Changed because the old way is not right. See documentations
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-                                    y_logit + 1e-50, #logits 
-                                    y_       #actual class labels
-                                ))
+    y_logit + 1e-50, #logits 
+    y_       #actual class labels
+    ))
+
 ''' OLD CODES (should be wrong):
 cross_entropy = tf.reduce_mean(
         tf.nn.softmax_cross_entropy_with_logits(
@@ -222,17 +216,15 @@ learning_rate = tf.train.exponential_decay(1e-1, global_step,
 
 # activate this to use adaptive gradient
 train_step = tf.train.AdagradOptimizer(
-     learning_rate).minimize(cross_entropy, global_step=global_step)
+     learning_rate).minimize(cross_entropy, global_step = global_step)
 '''
 train_step = tf.train.GradientDescentOptimizer(
      learning_rate).minimize(cross_entropy, global_step=global_step)
 '''
 # Define accuracy
 y_softmax = tf.nn.softmax(y_logit+1e-20) # the epilson is for safety
-correct_prediction = tf.equal(tf.argmax(y_softmax,1),
-                              tf.argmax(y_,1))
-accuracy = tf.reduce_mean(tf.cast(
-           correct_prediction, "float"))
+correct_prediction = tf.equal(tf.argmax(y_softmax, 1), tf.argmax(y_, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
 # Set up saver
 saver = tf.train.Saver()
@@ -261,7 +253,7 @@ with tf.Session() as sess:
     for i in range(numBatchesPerEpoch*epochs): #tqdm(range(numBatchesPerEpoch*epochs), ascii=True):
         
         # Set up training batch
-        batch = random.sample(range(trainSize),batchSize)
+        batch = random.sample(range(trainSize), batchSize)
         trainBatch = train[batch]
         trainLabelBatch = trainOneHot[batch]
         
@@ -270,11 +262,11 @@ with tf.Session() as sess:
                                feed_dict={x: trainBatch, 
                                           y_: trainLabelBatch, 
                                           keep_prob: 0.5
-                                          })
+                                         })
         
         
         # Debugging lines
-        if i%20==0:
+        if i%20 == 0:
             y_softmax_initial = y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0})
             loss_initial = tf.reduce_mean(-tf.reduce_sum(trainLabelBatch*tf.log(y_softmax_initial), 1)).eval()
             print("%6d. loss = %s" %(-1, loss_initial))
@@ -288,7 +280,7 @@ with tf.Session() as sess:
         
             
         # Record accuracy & save checkpoint
-        if (i % save_per_steps== 0) & (i>0) :            
+        if (i % save_per_steps == 0) & (i > 0):            
             # Check accuracy on train set
             train_acc = accuracy.eval(session=sess, feed_dict={x: trainBatch,
                 y_: trainLabelBatch, keep_prob: 1.0})
@@ -298,7 +290,7 @@ with tf.Session() as sess:
             
             batchesForValidation = validSize//batchSize
             totalAcc = 0
-            for j in range(0,batchesForValidation):
+            for j in range(0, batchesForValidation):
                 validation_sub_acc = accuracy.eval(session=sess,
                                                    feed_dict={x: valid[j*batchSize:(j+1)*batchSize-1],
                                                               y_: validOneHot[j*batchSize:(j+1)*batchSize-1],
@@ -315,9 +307,9 @@ with tf.Session() as sess:
                     
         # Save checkpoint AND remove previous checkpoint to save space (~150MB per file). 
         # Done on every epoch
-        if i%(100000//batchSize)==0 & i>0:
+        if i % (100000//batchSize) == 0 & i > 0:
             saver.save(sess, "conv_"+str(i//(100000//batchSize))+".ckpt")
-            if (i>=(100000//batchSize)):
+            if (i >= (100000//batchSize)):
                 try:
                     os.remove("conv_"+str(i//(100000//batchSize) - 1)+".ckpt")
                 except:
@@ -325,76 +317,4 @@ with tf.Session() as sess:
     
     # Save the weights after all the training has been done
     saver.save(sess, "conv_final.ckpt")
-
-
-
-
-"""
-### EXPEREMENTING HERE###
-
-# These will be inputs
-## Input pixels, flattened
-x = tf.placeholder("float", [None, 128*128*3])
-## Known labels
-y_ = tf.placeholder("float", [None,100])
-
-# Variables
-W = tf.Variable(tf.zeros([128*128*3,100]))
-b = tf.Variable(tf.zeros([100]))
-
-# Just initialize
-sess.run(tf.initialize_all_variables())
-
-# Define model
-y = tf.nn.softmax(tf.matmul(x,W) + b)
-
-### End model specification, begin training code
-
-
-# Climb on cross-entropy
-cross_entropy = tf.reduce_mean(
-        tf.nn.softmax_cross_entropy_with_logits(
-        y + 1e-50, y_))
-
-# How we train
-train_step = tf.train.GradientDescentOptimizer(
-                0.1).minimize(cross_entropy)
-
-# Define accuracy
-correct_prediction = tf.equal(tf.argmax(y,1),
-                     tf.argmax(y_,1))
-accuracy = tf.reduce_mean(tf.cast(
-           correct_prediction, "float"))
-
-
-# Actually train
-batchSize = 200
-epochs = 1000
-rangeSize = len(train)
-validSize = len(valid)
-train_acc = np.zeros(epochs//10)
-test_acc = np.zeros(epochs//10)
-for i in tqdm(range(epochs)):
-    batch = random.sample(range(rangeSize),batchSize)
-    trainBatch = train[batch]
-    trainLabelBatch = trainOneHot[batch]
-    # Record summary data, and the accuracy
-    if i % 10 == 0:
-        batch2 = random.sample(range(validSize),batchSize)
-        validBatch = valid[batch2]
-        validLabelBatch = validOneHot[batch2]
-        # Check accuracy on train set
-        A = accuracy.eval(feed_dict={
-            x: trainBatch.reshape([-1,128*128*3]),
-            y_: trainLabelBatch})
-        train_acc[i//10] = A
-        # And now the validation set
-        A = accuracy.eval(feed_dict={
-            x: validBatch.reshape([-1,128*128*3]),
-            y_: validLabelBatch})
-        test_acc[i//10] = A
-    train_step.run(feed_dict={
-        x: trainBatch.reshape([-1,128*128*3]),
-        y_: trainLabelBatch})
-"""
-                   
+    print "\n"
