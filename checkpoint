@@ -1,0 +1,2 @@
+model_checkpoint_path: "conv2a_partial_Mnist.ckpt"
+all_model_checkpoint_paths: "conv2a_partial_Mnist.ckpt"
