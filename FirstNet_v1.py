@@ -16,7 +16,7 @@ def weight_variable(shape):
   return tf.Variable(initial)
 
 def bias_variable(shape):
-  initial = tf.constant(0.1, shape=shape)
+  initial = tf.constant(random.uniform(0.05, 0.15), shape=shape)
   return tf.Variable(initial)
 
 def to_onehot(labels, nclasses=100):
@@ -211,18 +211,19 @@ cross_entropy = tf.reduce_mean(
 
 # Setup up exponential decay
 global_step = tf.Variable(0.0, trainable=False)
-learning_rate = tf.train.exponential_decay(1e-1, global_step,
+learning_rate = tf.train.exponential_decay(1e-3, global_step,
                                            100.0, 0.98, staircase=True)
 #learning_rate = 1e-3 # Comment this line off if you don't want fixed rate
 
 # activate this to use adaptive gradient
+#train_step = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
 train_step = tf.train.AdagradOptimizer(learning_rate).minimize(cross_entropy, global_step=global_step)
 '''
 train_step = tf.train.GradientDescentOptimizer(
      learning_rate).minimize(cross_entropy, global_step=global_step)
 '''
 # Define accuracy
-y_softmax = tf.nn.softmax(y_logit+1e-20) # the epilson is for safety
+y_softmax = tf.nn.softmax(y_logit + 1e-50) # the epilson is for safety
 correct_prediction = tf.equal(tf.argmax(y_softmax, 1), tf.argmax(y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
@@ -241,16 +242,17 @@ with tf.Session() as sess:
     numBatchesPerEpoch = trainSize//batchSize
     
     # Compute initial loss for reference
-    y_softmax_initial = y_softmax.eval(feed_dict = {x:train[0:100000:1000], keep_prob: 1.0})
-    loss_initial = tf.reduce_mean(-tf.reduce_sum(trainlabels[0:100000:1000]*tf.log(y_softmax_initial), 1)).eval()
-    print("%6d. loss = %s" %(-1, loss_initial))
+    #y_softmax_initial = y_softmax.eval(feed_dict = {x:train[0:100000:1000], keep_prob: 1.0})
+    #loss_initial = tf.reduce_mean(-tf.reduce_sum(trainlabels[0:100000:1000]*tf.log(y_softmax_initial), 1)).eval()
+    #print("%6d. loss = %s" %(-1, loss_initial))
     
     save_per_steps = 100000//2//batchSize # Define how many steps to run before saving. Default is 50k images
     print('Saving model every %d steps' %save_per_steps)
     
     f = open('trainingStatus.txt', 'wb')
           
-    for i in range(numBatchesPerEpoch*epochs): #tqdm(range(numBatchesPerEpoch*epochs), ascii=True):
+    for i in tqdm(range(numBatchesPerEpoch*epochs), ascii=True):
+    #for i in range(numBatchesPerEpoch*epochs): #tqdm(range(numBatchesPerEpoch*epochs), ascii=True):
         
         # Set up training batch
         batch = random.sample(range(trainSize),batchSize)
@@ -267,16 +269,16 @@ with tf.Session() as sess:
         
         # Debugging lines
         if i%20==0:
-            y_softmax_initial = y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0})
-            loss_initial = tf.reduce_mean(-tf.reduce_sum(trainLabelBatch*tf.log(y_softmax_initial), 1)).eval()
-            print("%6d. loss = %s" %(-1, loss_initial))
+            #y_softmax_initial = y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0})
+            #loss_initial = tf.reduce_mean(-tf.reduce_sum(trainLabelBatch*tf.log(y_softmax_initial), 1)).eval()
+            #print("%6d. loss = %s" %(-1, loss_initial))
             print("%6d. loss = %s (Learning rate: %.8f)" %(i, loss_val, learning_rate.eval()))
-            print(W1.eval()[0][0][0][0], W2.eval()[1][1][1][0], W3.eval()[2][2][2][0])
-            #print(tf.argmax(y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0}),1).eval())
-            #print(tf.argmax(y_.eval(feed_dict={y_: trainLabelBatch}),1).eval())
-            #train_acc = accuracy.eval(session=sess, feed_dict={x: trainBatch,
-            #    y_: trainLabelBatch, keep_prob: 1.0})
-            #print("Training acc: %.5f" %train_acc)
+            #print(W1.eval()[0][0][0][0], W2.eval()[1][1][1][0], W3.eval()[2][2][2][0])
+            print(tf.argmax(y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0}),1).eval())
+            print(tf.argmax(y_.eval(feed_dict={y_: trainLabelBatch}),1).eval())
+            train_acc = accuracy.eval(session=sess, feed_dict={x: trainBatch,
+                y_: trainLabelBatch, keep_prob: 1.0})
+            print("Training acc: %.5f" %train_acc)
         
             
         # Record accuracy & save checkpoint
@@ -300,7 +302,7 @@ with tf.Session() as sess:
             validation_acc = totalAcc/validSize
             print("Validation acc: %.5f" %validation_acc)
             
-            f.write("%5.2f, %.6f \n" %(i/numBatchesPerEpoch, validation_acc))
+            f.write(b"%5.2f, %.6f \n" %(i/numBatchesPerEpoch, validation_acc))
             
             # Save variables checkpoint
             print("Saving model checkpoint..")
