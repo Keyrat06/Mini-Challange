@@ -16,7 +16,8 @@ def conv2d(x, W, padding = 'SAME'):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding=padding)
 
 def layer_variable(shape, name=None):
-    initial = tf.truncated_normal(shape, stddev=0.5)
+    size = np.product(shape[0:3])
+    initial = tf.truncated_normal(shape, stddev=math.sqrt(2.0/size))
     return tf.Variable(initial, name=name)
 
 def to_onehot(labels, nclasses=100):
