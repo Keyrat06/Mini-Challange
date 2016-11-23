@@ -3,23 +3,29 @@ import os
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
-from Model import model
-#import matplotlib.pyplot as plt
+import math
+import matplotlib.pyplot as plt
 
 # Set parameters
 np.random.seed(0)
 tf.set_random_seed(0)
 batchSize = 70
-epochs = 20 # Epoch here is defined to be 100k images
 
+#-------------------HELPER FUNCTIONS-------------#
+def conv2d(x, W, padding = 'SAME'):
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding=padding)
 
-'''
+def layer_variable(shape, name=None):
+    size = np.product(shape[0:3])
+    initial = tf.truncated_normal(shape, stddev=math.sqrt(2.0/size))
+    return tf.Variable(initial, name=name)
+
 def to_onehot(labels, nclasses=100):
     outlabels = np.zeros((len(labels), nclasses))
     for i, l in enumerate(labels):
         outlabels[i, l] = 1
     return outlabels
-'''
+
 #--------------------NOTES------------------------#
 '''
 TO BE DONE: 
@@ -29,24 +35,21 @@ TO BE DONE:
 '''
 
 #--------------------LOAD DATA--------------------#
+
 # Load train data
 trainData = np.load('trainData.npz')
 train = trainData['arr_0']
 trainlabels = trainData['arr_1']
 train = train.astype('float32')
 
-if os.path.isfile('avg_img.npy'):
-    avg_img = np.load('avg_img.npy')
-else:
-    # Take average of all train data
-    avg_img = np.zeros([128,128,3], np.float32)
-    for i in tqdm(range(0, 100000), ascii=True):
-        avg_img=avg_img/(i+1.0)*i + train[i]/(i+1.0)
-    np.save('avg_img.npy',avg_img, False, True)
-    
+# Take average of all train data
+avg_img = np.zeros([128,128,3], np.float32)
+for i in tqdm(range(0, 100000), ascii=True):
+    avg_img=avg_img/(i+1.0)*i + train[i]/(i+1.0)
 # Subtract out average 
 for i in tqdm(range(0, 100000), ascii=True):
     train[i] = train[i]-avg_img
+#train = train[0:2000]
 
 # Load validation data
 validData = np.load('validData.npz')
@@ -56,6 +59,7 @@ valid = valid.astype('float16')
 # Subtract out average 
 for i in tqdm(range(0, 10000), ascii=True):
     valid[i] = valid[i]-avg_img
+#valid=valid[0:2000]
 
 # Load test set. We don't need it for now (save loading time)
 #testData = np.load('testData.npz')
@@ -64,6 +68,79 @@ for i in tqdm(range(0, 10000), ascii=True):
 # with open('labels.txt','r') as labelFile:
 #     for i,line in enumerate(labelFile.readlines()):
 #         names[i] = line.strip('\n')
+
+
+#--------------------MODEL DEFN--------------------#
+def model(x, y_, keep_prob):
+    # 128 X 128 X 3
+    # Conv layer 1
+    num_filters1 = 33
+    winx1 = 3
+    winy1 = 3
+    W1 = layer_variable([winx1, winy1, 3, num_filters1], 'conv1_weight')
+    b1 = layer_variable([num_filters1], 'conv1_bias')
+    h1 = tf.nn.elu(conv2d(x, W1) + b1)
+    
+    # 128 X 128 X 33
+    num_filters2 = 33
+    winx2 = 3
+    winy2 = 3
+    W2 = layer_variable([winx2, winy2, num_filters1, num_filters2], 'conv2_weight')
+    b2 = layer_variable([num_filters2], 'conv2_bias')
+    h2 = tf.nn.elu(conv2d(h1, W2,'VALID') + b2)
+    
+    # 126 X 126 X 33
+    num_filters3 = 64
+    winx3 = 3
+    winy3 = 3
+    W3 = layer_variable([winx3, winy3, num_filters2, num_filters3], 'conv3_weight')
+    b3 = layer_variable([num_filters3], 'conv3_bias')
+    h3 = tf.nn.elu(conv2d(h2, W3,'SAME') + b3)
+    
+    # 126 X 126 X 64
+    #3x3 Max pooling, no padding on edges
+    p1 = tf.nn.max_pool(h3, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding = 'VALID')
+    
+    # 62 X 62 X 64
+    num_filters4 = 192
+    winx4 = 1
+    winy4 = 1
+    W4 = layer_variable([winx4, winy4, num_filters3, num_filters4], )
+    b4 = layer_variable([num_filters4])
+    h4 = tf.nn.elu(conv2d(p1, W4, 'SAME') + b4)
+    
+    # 62 X 62 X 192 
+    num_filters5 = 80
+    winx5 = 3
+    winy5 = 3
+    W5 = layer_variable([winx5, winy5, num_filters4, num_filters5])
+    b5 = layer_variable([num_filters5])
+    h5 = tf.nn.elu(conv2d(h4, W5, 'VALID') + b5)
+    
+    # 60 X 60 X 80
+    # 2x2 Max pooling, no padding on edges
+    p2 = tf.nn.max_pool(h5, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding = 'VALID')
+    
+    # Input is now about 30x30x192
+    # Need to flatten convolutional output
+    p2_size = np.product([s.value for s in p2.get_shape()[1:]])
+    p2f = tf.reshape(p2, [-1, p2_size ])
+    
+    # Dense layer 
+    num_hidden_a = 1024
+    W6a = layer_variable([p2_size, num_hidden_a])
+    b6a = layer_variable([num_hidden_a])
+    h6a = tf.nn.elu(tf.matmul(p2f,W6a) + b6a)
+    
+    # Drop out training
+    h6_drop = tf.nn.dropout(h6a, keep_prob)
+    
+    # Output Layer
+    W7 = layer_variable([num_hidden_a, 100])
+    b7 = layer_variable([100])
+    y_logit = tf.matmul(h6_drop,W7) + b7
+    
+    return y_logit
 
 # -------------------- SETUP UP ACTUAL TRAINING ---------------
 # Use model
@@ -76,9 +153,9 @@ y_logit = model(x, y_, keep_prob) # model is being used here
 y_softmax = tf.nn.softmax(y_logit)
 correct_prediction = tf.nn.in_top_k(y_softmax, y_, 1)
 correct_prediction5 = tf.nn.in_top_k(y_softmax, y_, 5)
+#correct_prediction = tf.equal(tf.argmax(y_softmax, 1), tf.cast(y_,tf.int64))
 accuracy1 = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 accuracy5 = tf.reduce_mean(tf.cast(correct_prediction5, tf.float32))
-
 # Set loss function (cross entropy)
 cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
                                     y_logit, #logits 
@@ -105,6 +182,7 @@ with tf.Session() as sess:
     # Initialize variables
     sess.run(tf.initialize_all_variables())
     
+    epochs = 20 # Epoch here is defined to be 100k images
     trainSize = len(train)
     validSize = len(valid)
     numBatchesPerEpoch = trainSize//batchSize
@@ -148,9 +226,12 @@ with tf.Session() as sess:
         _, loss_val = sess.run([train_step, cross_entropy], 
                                feed_dict={x: trainBatch, 
                                           y_: trainLabelBatch, 
-                                          keep_prob: 0.5
+                                          keep_prob: 1
                                           })
-                
+        
+        # Write to file
+        f2.write("%d, %.4f \n" %(i, loss_val))
+        
         # If we seem to have reached a good model, save it
         if (loss_val<=0.95*best_loss) & (loss_val<4.5) & (i - last_i >20):
             try:
@@ -182,31 +263,18 @@ with tf.Session() as sess:
                 y_: trainLabelBatch, keep_prob: 1.0})
             train_acc5 = accuracy5.eval(session=sess, feed_dict={x: trainBatch,
                 y_: trainLabelBatch, keep_prob: 1.0})
-            validBatchbatch = random.sample(range(validSize),batchSize)
-            validation_sub_acc = accuracy1.eval(session=sess,
-                                   feed_dict={x: valid[validBatchbatch],
-                                              y_: validlabels[validBatchbatch],
-                                              keep_prob: 1.0
-                                            })
-            validAcc1 = validation_sub_acc
-            validation_sub_acc = accuracy5.eval(session=sess,
-                                   feed_dict={x: valid[validBatchbatch],
-                                              y_: validlabels[validBatchbatch],
-                                              keep_prob: 1.0
-                                            })
-            validAcc5 = validation_sub_acc
             try:
-                print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
-                      %(i, loss_val, learning_rate.eval(), train_acc1, train_acc5, validAcc1, validAcc5))
+                print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f" %(i, loss_val, learning_rate.eval(),train_acc1,train_acc5))
             except:
-                print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
-                      %(i, loss_val, learning_rate,train_acc1,train_acc5, validAcc1, validAcc5))
-                    # Write to file
-            f2.write("%d, %.4f, %.5f, %.5f, %.5f, %.5f\n" %(i, loss_val, train_acc1, train_acc5, validAcc1, validAcc5))
+                print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f" %(i, loss_val, learning_rate,train_acc1,train_acc5))
             
             #print(W1.eval()[0][0][0][0], W2.eval()[1][1][1][0], W3.eval()[2][2][2][0])
-            #print(tf.argmax(y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0}),1).eval())
-            #print(trainLabelBatch)        
+            print(tf.argmax(y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0}),1).eval())
+            print(trainLabelBatch)
+            #train_acc = accuracy.eval(session=sess, feed_dict={x: trainBatch,
+            #    y_: trainLabelBatch, keep_prob: 1.0})
+            #print("Training acc: %.5f" %train_acc)
+        
             
         # Record accuracy & save checkpoint
         if (i % save_per_steps == 0) & (i>0) :    
