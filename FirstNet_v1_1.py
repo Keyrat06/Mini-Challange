@@ -26,6 +26,32 @@ def to_onehot(labels, nclasses=100):
         outlabels[i, l] = 1
     return outlabels
 
+#returns a "onelayer" convolution of input with
+#each pair in sizeAndShapes
+#size and shapes should be a list of [size1,number1,size2,number2,...,sizen,numbern]
+#Returns (output,outputSize)
+def addConvBlock(input,inputSize,sizeAndShapes,blockName=''):
+    length = len(sizeAndShapes)
+    if length%2 != 0:
+        print "sorry Size and Shapes must be even since they are pairs"
+        return None
+    else:
+        outPuts = []
+        outputSize = 0
+        for i in xrange(length/2):
+            kernalSize = sizeAndShapes[2*i]
+            kernalDepth = sizeAndShapes[2*i+1]
+
+            totalSize = kernalSize*kernalSize*inputSize
+            outputSize += kernalDepth
+
+            initial = tf.truncated_normal([kernalSize,kernalSize,inputSize,kernalDepth], stddev=math.sqrt(2.0/totalSize))
+            W = tf.Variable(initial, name=blackName+str(kernalSize))
+            out = tf.nn.conv2d(input, W, strides=[1, 1, 1, 1], padding='SAME')
+            outPuts.append(out)
+        return (tf.concat(3, outPuts),outputSize)
+
+
 #--------------------NOTES------------------------#
 '''
 TO BE DONE: 
@@ -145,7 +171,7 @@ def model(x, y_, keep_prob):
 # -------------------- SETUP UP ACTUAL TRAINING ---------------
 # Use model
 x = tf.placeholder(tf.float32, [None, 128, 128, 3])
-y_ = tf.placeholder(tf.int32, [None, ])
+y_ = tf.placeholder(tf.int32, [None, 100])
 keep_prob = tf.placeholder("float")
 y_logit = model(x, y_, keep_prob) # model is being used here
 
