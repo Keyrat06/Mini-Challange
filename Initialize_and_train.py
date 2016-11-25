@@ -11,7 +11,7 @@ np.random.seed(0)
 tf.set_random_seed(0)
 batchSize = 70
 epochs = 8 # Epoch here is defined to be 100k images
-
+toSave = False
 
 '''
 def to_onehot(labels, nclasses=100):
@@ -31,8 +31,9 @@ TO BE DONE:
 #--------------------LOAD DATA--------------------#
 # Load train data
 trainData = np.load('trainData.npz')
-train = trainData['arr_0'].astype('float32')
+train = trainData['arr_0']
 trainlabels = trainData['arr_1']
+train = train.astype('float32')
 
 if os.path.isfile('avg_img.npy'):
     avg_img = np.load('avg_img.npy')
@@ -67,16 +68,19 @@ for i in tqdm(range(0, 10000), ascii=True):
 # -------------------- SETUP UP ACTUAL TRAINING ---------------
 # Use model
 x = tf.placeholder(tf.float32, [None, 128, 128, 3])
-y_ = tf.placeholder(tf.int32, [None, ])
+y_ = tf.placeholder(tf.int32, [None])
 keep_prob = tf.placeholder("float")
-y_logit, end_points = model(x, y_, keep_prob) # model is being used here
+y_logit, end_points = model(x, keep_prob) # model is being used here
 
 # Define accuracy for evaluation purposes
 y_softmax = tf.nn.softmax(y_logit)
-correct_prediction = tf.nn.in_top_k(y_softmax, y_, 1)
-correct_prediction5 = tf.nn.in_top_k(y_softmax, y_, 5)
-accuracy1 = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-accuracy5 = tf.reduce_mean(tf.cast(correct_prediction5, tf.float32))
+model_bool_pred1 = tf.nn.in_top_k(y_softmax, y_, 1)
+model_bool_pred5 = tf.nn.in_top_k(y_softmax, y_, 5)
+model_float_pred5 = tf.cast(model_bool_pred5, tf.float32)
+_ , model_pred1 = tf.nn.top_k(y_softmax, 1)
+_ , model_pred5 = tf.nn.top_k(y_softmax, 5)
+accuracy1 = tf.reduce_sum(tf.cast(model_bool_pred1, tf.float32))/batchSize
+accuracy5 = tf.reduce_sum(tf.cast(model_bool_pred5, tf.float32))/batchSize
 
 # Set loss function (cross entropy)
 cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -88,7 +92,7 @@ cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
 global_step = tf.Variable(0.0, trainable=False)
 ''' Activate either one for exponential decay/constant rate '''
 learning_rate = tf.train.exponential_decay(1e-4, global_step,
-                                           350.0, 0.96, staircase=True)
+                                           50.0, 0.96, staircase=True)
 #learning_rate = 2.5e-5 # Comment this line off if you don't want fixed rate
 
 ''' Activate this to use adaptive gradient '''
@@ -108,7 +112,7 @@ with tf.Session() as sess:
     validSize = len(valid)
     numBatchesPerEpoch = trainSize//batchSize
     
-    # Initialisze
+    # Initialize
     best_loss = 1e50;
     loss_val = best_loss
     last_i = 0
@@ -127,31 +131,15 @@ with tf.Session() as sess:
         trainBatch = train[batch]
         trainLabelBatch = trainlabels[batch]
         
-        # Learning schedule
-        '''
-        if loss_val <= 10000.0:
-            learning_rate = 1e-4
-        if loss_val <= 5000.0:
-            learning_rate = 1e-5
-        if loss_val <= 1000.0:
-            learning_rate = 3e-6
-        if loss_val <= 500.0:
-            learning_rate = 5e-7
-        if loss_val <= 100.0:
-            learning_rate = 1e-8
-        if loss_val <= 10.0:
-            learning_rate = 1e-9
-        '''
-        
         # Run one iteration of training
         _, loss_val = sess.run([train_step, cross_entropy], 
                                feed_dict={x: trainBatch, 
-                                          y_: trainLabelBatch, 
+                                          y_: np.transpose(trainLabelBatch), 
                                           keep_prob: 0.5
                                           })
                 
         # If we seem to have reached a good model, save it
-        if (loss_val<=0.95*best_loss) & (loss_val<4.5) & (i - last_i >20):
+        if (loss_val<=0.95*best_loss) & (loss_val<4.5) & (i - last_i >20) & toSave:
             try:
                 saver.save(sess, "conv_best.ckpt")
                 print("Best model saved, loss = %.5f!" %(loss_val))
@@ -177,74 +165,81 @@ with tf.Session() as sess:
             exit
         '''
         if i%50==0:
-            trainAcc1, trainAcc5, = sess.run([accuracy1, accuracy5], 
-                                            feed_dict={x: trainBatch, 
-                                                       y_: trainLabelBatch, 
-                                                       keep_prob: 1.0
-                                                      })
+            # Train data
+            train_acc1, train_acc5, pred5 = \
+            sess.run([accuracy1, accuracy5, model_pred5],
+                     {x: trainBatch,
+                      y_: np.transpose(trainLabelBatch), 
+                      keep_prob: 1.0})
             
-            validBatch = random.sample(range(validSize), batchSize)
-            validAcc1, validAcc5 = sess.run([accuracy1, accuracy5], 
-                                            feed_dict={x: valid[validBatch], 
-                                                       y_: validlabels[validBatch], 
-                                                       keep_prob: 1.0
-                                                      })
-
+            temp = np.concatenate((pred5, np.transpose([trainLabelBatch])), axis=1)
+            print(temp)
+            #print(np.sum(pred5_float))
+            
+            # Valid data
+            validBatchbatch = random.sample(range(validSize),batchSize)
+            validAcc1, validAcc5, validPred5 = \
+            sess.run([accuracy1, accuracy5, model_pred5],
+                     {x: valid[validBatchbatch],
+                      y_: np.transpose(validlabels[validBatchbatch]),
+                      keep_prob: 1.0})
             try:
                 print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
-                      %(i, loss_val, learning_rate.eval(), trainAcc1, trainAcc5, validAcc1, validAcc5))
+                      %(i, loss_val, learning_rate.eval(), train_acc1, train_acc5, validAcc1, validAcc5))
             except:
                 print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
-                      %(i, loss_val, learning_rate, trainAcc1, trainAcc5, validAcc1, validAcc5))
-                    # Write to file
-            f2.write("%d, %.4f, %.5f, %.5f, %.5f, %.5f\n" %(i, loss_val, trainAcc1, trainAcc5, validAcc1, validAcc5))
+                      %(i, loss_val, learning_rate,train_acc1,train_acc5, validAcc1, validAcc5))
+            # Write to file
+            f2.write("%d, %.4f, %.5f, %.5f, %.5f, %.5f\n" %(i, loss_val, train_acc1, train_acc5, validAcc1, validAcc5))
             
             #print(W1.eval()[0][0][0][0], W2.eval()[1][1][1][0], W3.eval()[2][2][2][0])
             #print(tf.argmax(y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0}),1).eval())
             #print(trainLabelBatch)        
             
         # Record accuracy & save checkpoint
-        if (i % 490 == 0) & (i>0) :    
+        if (i % save_per_steps == 0) & (i>0) :    
             # Check accuracy on train set
-            trainAcc1, trainAcc5 = sess.run([accuracy1, accuracy5], 
-                                            feed_dict={x: trainBatch, 
-                                                       y_: trainLabelBatch, 
-                                                       keep_prob: 1.0
-                                                      })
-            print("Training acc: %.5f /%.5f" %(trainAcc1, trainAcc5))
+            train_acc1, train_acc5, pred1, pred5 = \
+            sess.run([accuracy1, accuracy5, model_pred1, model_pred5],
+                     {x: trainBatch,
+                      y_: trainLabelBatch, 
+                      keep_prob: 1.0})
+            print("Training acc: %.5f /%.5f" %(train_acc1,train_acc5))
             
             # And now the validation set
-            totalAcc1 = 0.0
-            totalAcc5 = 0.0
             validBatchSize = 50
             batchesForValidation = validSize//validBatchSize
+            totalAcc1 = 0
+            totalAcc5 = 0
             for j in tqdm(range(0, batchesForValidation), ascii=True):
-                validAcc1, validAcc5 = sess.run([accuracy1, accuracy5], 
-                                                feed_dict={x: valid[j*validBatchSize:(j+1)*validBatchSize-1], 
-                                                           y_: validlabels[j*validBatchSize:(j+1)*validBatchSize-1], 
-                                                           keep_prob: 1.0
-                                                          })
-                totalAcc1 += validAcc1
-                totalAcc5 += validAcc5
-            validAcc1 = totalAcc1/batchesForValidation
-            validAcc5 = totalAcc5/batchesForValidation
-            print("Validation acc: %.5f /%.5f" %(validAcc1, validAcc5))
+                validAcc1, validAcc5, validPred1, validPred5 = \
+                    sess.run([accuracy1, accuracy5, model_pred1, model_pred5],
+                             {x: valid[j*validBatchSize:(j+1)*validBatchSize],
+                              y_: validlabels[j*validBatchSize:(j+1)*validBatchSize],
+                              keep_prob: 1.0})
+                totalAcc1 += validAcc1*50.0
+                totalAcc5 += validAcc5*50.0
+                
+            validation_acc1 = totalAcc1/validSize
+            validation_acc5 = totalAcc5/validSize
+            print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
             
             # Write to file
-            f.write("%5.2f, %.6f, %.6f \n" %(i, validAcc1, validAcc5))
+            f.write("%5.2f, %.6f, %.6f \n" %(i, validation_acc1, validation_acc5))
             
             # Save variables checkpoint
-            print("Saving model checkpoint..")
-            try:
-                saver.save(sess, "conv2a_partial.ckpt")
-                print("Model saved!")
-            except:
-                pass
-                print("Model failed to save :(")
+            if toSave:
+                print("Saving model checkpoint..")
+                try:
+                    saver.save(sess, "conv2a_partial.ckpt")
+                    print("Model saved!")
+                except:
+                    pass
+                    print("Model failed to save :(")
 
         # Save checkpoint AND remove previous checkpoint to save space (~150MB per file). 
         # Done on every epoch
-        if i%(100000//batchSize)==0 & i>0:
+        if i%(100000//batchSize)==0 & i>0 & toSave:
             saver.save(sess, "conv_"+str(i//(100000//batchSize))+".ckpt")
             if (i>=(100000//batchSize)):
                 try:
