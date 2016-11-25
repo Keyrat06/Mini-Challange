@@ -31,9 +31,8 @@ TO BE DONE:
 #--------------------LOAD DATA--------------------#
 # Load train data
 trainData = np.load('trainData.npz')
-train = trainData['arr_0']
+train = trainData['arr_0'].astype('float32')
 trainlabels = trainData['arr_1']
-train = train.astype('float32')
 
 if os.path.isfile('avg_img.npy'):
     avg_img = np.load('avg_img.npy')
@@ -178,31 +177,27 @@ with tf.Session() as sess:
             exit
         '''
         if i%50==0:
-            train_acc1 = accuracy1.eval(session=sess, feed_dict={x: trainBatch,
-                y_: trainLabelBatch, keep_prob: 1.0})
-            train_acc5 = accuracy5.eval(session=sess, feed_dict={x: trainBatch,
-                y_: trainLabelBatch, keep_prob: 1.0})
-            validBatchbatch = random.sample(range(validSize),batchSize)
-            validation_sub_acc = accuracy1.eval(session=sess,
-                                   feed_dict={x: valid[validBatchbatch],
-                                              y_: validlabels[validBatchbatch],
-                                              keep_prob: 1.0
-                                            })
-            validAcc1 = validation_sub_acc
-            validation_sub_acc = accuracy5.eval(session=sess,
-                                   feed_dict={x: valid[validBatchbatch],
-                                              y_: validlabels[validBatchbatch],
-                                              keep_prob: 1.0
-                                            })
-            validAcc5 = validation_sub_acc
+            trainAcc1, trainAcc5, = sess.run([accuracy1, accuracy5], 
+                                            feed_dict={x: trainBatch, 
+                                                       y_: trainLabelBatch, 
+                                                       keep_prob: 1.0
+                                                      })
+            
+            validBatch = random.sample(range(validSize), batchSize)
+            validAcc1, validAcc5 = sess.run([accuracy1, accuracy5], 
+                                            feed_dict={x: valid[validBatch], 
+                                                       y_: validlabels[validBatch], 
+                                                       keep_prob: 1.0
+                                                      })
+
             try:
                 print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
-                      %(i, loss_val, learning_rate.eval(), train_acc1, train_acc5, validAcc1, validAcc5))
+                      %(i, loss_val, learning_rate.eval(), trainAcc1, trainAcc5, validAcc1, validAcc5))
             except:
                 print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
-                      %(i, loss_val, learning_rate,train_acc1,train_acc5, validAcc1, validAcc5))
+                      %(i, loss_val, learning_rate, trainAcc1, trainAcc5, validAcc1, validAcc5))
                     # Write to file
-            f2.write("%d, %.4f, %.5f, %.5f, %.5f, %.5f\n" %(i, loss_val, train_acc1, train_acc5, validAcc1, validAcc5))
+            f2.write("%d, %.4f, %.5f, %.5f, %.5f, %.5f\n" %(i, loss_val, trainAcc1, trainAcc5, validAcc1, validAcc5))
             
             #print(W1.eval()[0][0][0][0], W2.eval()[1][1][1][0], W3.eval()[2][2][2][0])
             #print(tf.argmax(y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0}),1).eval())
@@ -211,36 +206,32 @@ with tf.Session() as sess:
         # Record accuracy & save checkpoint
         if (i % 490 == 0) & (i>0) :    
             # Check accuracy on train set
-            train_acc1 = accuracy1.eval(session=sess, feed_dict={x: trainBatch,
-                y_: trainLabelBatch, keep_prob: 1.0})
-            train_acc5 = accuracy5.eval(session=sess, feed_dict={x: trainBatch,
-                y_: trainLabelBatch, keep_prob: 1.0})
-            print("Training acc: %.5f /%.5f" %(train_acc1,train_acc5))
+            trainAcc1, trainAcc5 = sess.run([accuracy1, accuracy5], 
+                                            feed_dict={x: trainBatch, 
+                                                       y_: trainLabelBatch, 
+                                                       keep_prob: 1.0
+                                                      })
+            print("Training acc: %.5f /%.5f" %(trainAcc1, trainAcc5))
             
             # And now the validation set
+            totalAcc1 = 0.0
+            totalAcc5 = 0.0
             validBatchSize = 50
             batchesForValidation = validSize//validBatchSize
-            totalAcc1 = 0
-            totalAcc5 = 0
             for j in tqdm(range(0, batchesForValidation), ascii=True):
-                validation_sub_acc = accuracy1.eval(session=sess,
-                                                   feed_dict={x: valid[j*validBatchSize:(j+1)*validBatchSize-1],
-                                                              y_: validlabels[j*validBatchSize:(j+1)*validBatchSize-1],
-                                                              keep_prob: 1.0
-                                                            })
-                totalAcc1 += validation_sub_acc*50.0
-                validation_sub_acc = accuracy5.eval(session=sess,
-                                                   feed_dict={x: valid[j*validBatchSize:(j+1)*validBatchSize-1],
-                                                              y_: validlabels[j*validBatchSize:(j+1)*validBatchSize-1],
-                                                              keep_prob: 1.0
-                                                            })
-                totalAcc5 += validation_sub_acc*50.0
-            validation_acc1 = totalAcc1/validSize
-            validation_acc5 = totalAcc5/validSize
-            print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
+                validAcc1, validAcc5 = sess.run([accuracy1, accuracy5], 
+                                                feed_dict={x: valid[j*validBatchSize:(j+1)*validBatchSize-1], 
+                                                           y_: validlabels[j*validBatchSize:(j+1)*validBatchSize-1], 
+                                                           keep_prob: 1.0
+                                                          })
+                totalAcc1 += validAcc1
+                totalAcc5 += validAcc5
+            validAcc1 = totalAcc1/batchesForValidation
+            validAcc5 = totalAcc5/batchesForValidation
+            print("Validation acc: %.5f /%.5f" %(validAcc1, validAcc5))
             
             # Write to file
-            f.write("%5.2f, %.6f, %.6f \n" %(i, validation_acc1, validation_acc5))
+            f.write("%5.2f, %.6f, %.6f \n" %(i, validAcc1, validAcc5))
             
             # Save variables checkpoint
             print("Saving model checkpoint..")
