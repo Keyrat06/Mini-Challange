@@ -10,8 +10,8 @@ from Model import model
 np.random.seed(0)
 tf.set_random_seed(0)
 batchSize = 70
-epochs = 8 # Epoch here is defined to be 100k images
-toSave = False
+epochs = 30 # Epoch here is defined to be 100k images
+toSave = True
 
 '''
 def to_onehot(labels, nclasses=100):
@@ -70,14 +70,14 @@ for i in tqdm(range(0, 10000), ascii=True):
 x = tf.placeholder(tf.float32, [None, 128, 128, 3])
 y_ = tf.placeholder(tf.int32, [None])
 keep_prob = tf.placeholder("float")
-y_logit = model(x, y_, keep_prob) # model is being used here
+packer = model(x, keep_prob) # model is being used here
+y_logit = packer['y_logit']
+end_points = packer['end_points']
+regularizable_para = packer['regularizable_para']
+aux_logits = packer['aux_logits']
 
 # Define accuracy for evaluation purposes
 y_softmax = tf.nn.softmax(y_logit)
-#correct_prediction = tf.nn.in_top_k(y_softmax, y_, 1)
-#correct_prediction5 = tf.nn.in_top_k(y_softmax, y_, 5)
-#accuracy1 = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-#accuracy5 = tf.reduce_mean(tf.cast(correct_prediction5, tf.float32))
 _ , model_pred1 = tf.nn.top_k(y_softmax, 1)
 _ , model_pred5 = tf.nn.top_k(y_softmax, 5)
 correct1 = tf.reduce_any(tf.equal(model_pred1, tf.expand_dims(y_, 1)), 1)
@@ -90,19 +90,28 @@ cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
                                     y_logit, #logits 
                                     y_       #actual class labels
                                 ))
+aux_cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+                                    aux_logits, #logits 
+                                    y_       #actual class labels
+                                ))
 
 #Set learning rate
 global_step = tf.Variable(0.0, trainable=False)
 ''' Activate either one for exponential decay/constant rate '''
-learning_rate = tf.train.exponential_decay(1e-4, global_step,
-                                           50.0, 0.96, staircase=True)
+learning_rate = tf.train.exponential_decay(5e-4, global_step,
+                                           2000.0, 0.96, staircase=True)
 #learning_rate = 2.5e-5 # Comment this line off if you don't want fixed rate
 
 ''' Activate this to use adaptive gradient '''
-#train_step = tf.train.AdagradOptimizer(learning_rate).minimize(cross_entropy, global_step=global_step)
+'''
+train_step = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy, global_step=global_step)
+train_step_aux = tf.train.AdamOptimizer(1e-4).minimize(aux_cross_entropy)
+'''
 train_step = tf.train.GradientDescentOptimizer(
-     learning_rate).minimize(cross_entropy, global_step=global_step)
-     
+    learning_rate).minimize(cross_entropy, global_step=global_step)
+train_step_aux = tf.train.GradientDescentOptimizer(5e-5).minimize(aux_cross_entropy)
+
+
 # Set up saver
 saver = tf.train.Saver()
 
@@ -135,6 +144,13 @@ with tf.Session() as sess:
         trainLabelBatch = trainlabels[batch]
         
         # Run one iteration of training
+        if (i<3000):
+            sess.run([train_step_aux],
+                     feed_dict={x: trainBatch,
+                                y_: np.transpose(trainLabelBatch),
+                                keep_prob: 0.5
+                                })
+        
         _, loss_val = sess.run([train_step, cross_entropy], 
                                feed_dict={x: trainBatch, 
                                           y_: np.transpose(trainLabelBatch), 
@@ -168,23 +184,32 @@ with tf.Session() as sess:
             exit
         '''
         if i%50==0:
+
             # Train data
-            train_acc1, train_acc5, pred5 = \
+            train_acc1, train_acc5 = \
+            sess.run([accuracy1, accuracy5],
+                     {x: trainBatch,
+                      y_: trainLabelBatch, 
+                      keep_prob: 1.0})
+            
+            
+            # These print the predicted labels and actual label as a np_array
+            
+            train_acc1, train_acc5, train_pred5 = \
             sess.run([accuracy1, accuracy5, model_pred5],
                      {x: trainBatch,
                       y_: np.transpose(trainLabelBatch), 
                       keep_prob: 1.0})
+            temp = np.concatenate((train_pred5[0:50:10], np.transpose([trainLabelBatch[0:50:10]])), axis=1)
+            print(temp) 
             
-            temp = np.concatenate((pred5, np.transpose([trainLabelBatch])), axis=1)
-            print(temp)
-            #print(np.sum(pred5_float))
             
             # Valid data
             validBatchbatch = random.sample(range(validSize),batchSize)
-            validAcc1, validAcc5, validPred5 = \
-            sess.run([accuracy1, accuracy5, model_pred5],
+            validAcc1, validAcc5, end_point = \
+            sess.run([accuracy1, accuracy5, end_points],
                      {x: valid[validBatchbatch],
-                      y_: np.transpose(validlabels[validBatchbatch]),
+                      y_: validlabels[validBatchbatch],
                       keep_prob: 1.0})
             try:
                 print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
@@ -195,7 +220,7 @@ with tf.Session() as sess:
             # Write to file
             f2.write("%d, %.4f, %.5f, %.5f, %.5f, %.5f\n" %(i, loss_val, train_acc1, train_acc5, validAcc1, validAcc5))
             
-            #print(W1.eval()[0][0][0][0], W2.eval()[1][1][1][0], W3.eval()[2][2][2][0])
+            #print(end_point['conv1'][0][0][0][0], end_point['conv3'][1][1][1][0], end_point['conv5'][2][2][2][0])
             #print(tf.argmax(y_softmax.eval(feed_dict = {x:trainBatch, keep_prob: 1.0}),1).eval())
             #print(trainLabelBatch)        
             
