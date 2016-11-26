@@ -70,17 +70,20 @@ for i in tqdm(range(0, 10000), ascii=True):
 x = tf.placeholder(tf.float32, [None, 128, 128, 3])
 y_ = tf.placeholder(tf.int32, [None])
 keep_prob = tf.placeholder("float")
-y_logit, end_points = model(x, keep_prob) # model is being used here
+y_logit = model(x, y_, keep_prob) # model is being used here
 
 # Define accuracy for evaluation purposes
 y_softmax = tf.nn.softmax(y_logit)
-model_bool_pred1 = tf.nn.in_top_k(y_softmax, y_, 1)
-model_bool_pred5 = tf.nn.in_top_k(y_softmax, y_, 5)
-model_float_pred5 = tf.cast(model_bool_pred5, tf.float32)
+#correct_prediction = tf.nn.in_top_k(y_softmax, y_, 1)
+#correct_prediction5 = tf.nn.in_top_k(y_softmax, y_, 5)
+#accuracy1 = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+#accuracy5 = tf.reduce_mean(tf.cast(correct_prediction5, tf.float32))
 _ , model_pred1 = tf.nn.top_k(y_softmax, 1)
 _ , model_pred5 = tf.nn.top_k(y_softmax, 5)
-accuracy1 = tf.reduce_sum(tf.cast(model_bool_pred1, tf.float32))/batchSize
-accuracy5 = tf.reduce_sum(tf.cast(model_bool_pred5, tf.float32))/batchSize
+correct1 = tf.reduce_any(tf.equal(model_pred1, tf.expand_dims(y_, 1)), 1)
+correct5 = tf.reduce_any(tf.equal(model_pred5, tf.expand_dims(y_, 1)), 1)
+accuracy1 = tf.reduce_sum(tf.cast(correct1, tf.float32))/batchSize   
+accuracy5 = tf.reduce_sum(tf.cast(correct5, tf.float32))/batchSize
 
 # Set loss function (cross entropy)
 cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
