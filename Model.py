@@ -11,6 +11,30 @@ def layer_variable(shape, name=None):
     initial = tf.truncated_normal(shape, stddev=math.sqrt(2.0/size))
     return tf.Variable(initial, name=name)
 
+    
+def addConvBlock(input,inputSize,sizeAndShapes,blockName=''):
+    length = len(sizeAndShapes)
+    if length%2 != 0:
+        print "sorry Size and Shapes must be even since they are pairs"
+        return None
+    else:
+        outPuts = []
+        outputSize = 0
+        for i in xrange(length/2):
+            kernalSize = sizeAndShapes[2*i]
+            kernalDepth = sizeAndShapes[2*i+1]
+
+            totalSize = kernalSize*kernalSize*inputSize
+            outputSize += kernalDepth
+
+            initial = tf.truncated_normal([kernalSize,kernalSize,inputSize,kernalDepth], stddev=math.sqrt(2.0/totalSize))
+            W = tf.Variable(initial, name=blackName+str(kernalSize))
+            out = tf.nn.conv2d(input, W, strides=[1, 1, 1, 1], padding='SAME')
+            outPuts.append(out)
+        return (tf.concat(3, outPuts),outputSize)
+
+
+
 #--------------------MODEL DEFN--------------------#
 def model(x, y_, keep_prob):
     # 128 X 128 X 3
