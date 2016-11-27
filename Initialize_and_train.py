@@ -73,13 +73,19 @@ y_logit, end_points = model(x, y_, keep_prob) # model is being used here
 
 # Define accuracy for evaluation purposes
 y_softmax = tf.nn.softmax(y_logit)
-correct_prediction = tf.nn.in_top_k(y_softmax, y_, 1)
-correct_prediction5 = tf.nn.in_top_k(y_softmax, y_, 5)
-accuracy1 = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-accuracy5 = tf.reduce_mean(tf.cast(correct_prediction5, tf.float32))
+#correct_prediction = tf.nn.in_top_k(y_softmax, y_, 1)
+#correct_prediction5 = tf.nn.in_top_k(y_softmax, y_, 5)
+#accuracy1 = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+#accuracy5 = tf.reduce_mean(tf.cast(correct_prediction5, tf.float32))
+_ , model_pred1 = tf.nn.top_k(y_softmax, 1)
+_ , model_pred5 = tf.nn.top_k(y_softmax, 5)
+correct1 = tf.reduce_any(tf.equal(model_pred1, tf.expand_dims(y_, 1)), 1)
+correct5 = tf.reduce_any(tf.equal(model_pred5, tf.expand_dims(y_, 1)), 1)
+accuracy1 = tf.reduce_sum(tf.cast(correct1, tf.float32))/batchSize   
+accuracy5 = tf.reduce_sum(tf.cast(correct5, tf.float32))/batchSize
 
-# Set loss function (cross entropy)
-cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+# Se loss function (cross entropy)
+  creoss_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
                                     y_logit, #logits 
                                     y_       #actual class labels
                                 ))
