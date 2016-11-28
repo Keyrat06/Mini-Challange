@@ -90,7 +90,7 @@ def fully_connected_layer(inputs, num_output_units, name='full_layer'):
     biases = layer_variable([num_output_units])
     #biases = tf.zeros([num_output_units], dtype=tf.float32)
     # Mat-mul inputs and matrix, add bias, then elu
-    outputs = tf.nn.elu(tf.matmul(inputs,weights) + biases)
+    outputs = tf.nn.elu(tf.nn.bias_add(tf.matmul(inputs,weights),  biases))
     
     regularizable_para += tf.reduce_sum(tf.square(weights))
     return outputs
