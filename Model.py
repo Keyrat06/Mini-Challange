@@ -1,10 +1,35 @@
 import numpy as np
+import random
 import tensorflow as tf
 import math
+from scipy import ndimage
 
 regularizable_para = 0
 
 #-------------------HELPER FUNCTIONS-------------#
+
+def scrambleImages(images):
+  for i in range(len(images)):
+    whatToDo = random.randint(0, 3):
+    if whatToDo == 0:
+      pass
+    elif whatToDo == 1: #flip horizontally
+      images[i] = np.fliplr(images[i])
+    elif whatToDo == 2: #add Noise
+      row,col,ch= images[i].shape
+      mean = 0
+      sigma = .05
+      guass = np.random.normal(mean,sigma,(row,col,ch))
+      images[i] = images[i] + guass
+    elif whatToDo == 3: #blur image
+      images[i] = ndimage.gaussian_filter(images[i], 3)
+
+
+    # Vertical flip might not be a good idea
+    # elif whatToDo == 4: #flip vertically
+    #   images[i] = np.flipud(images[i])
+
+
 def _two_element_tuple(int_or_tuple):
   """Converts `int_or_tuple` to height, width.
 
