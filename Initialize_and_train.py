@@ -47,7 +47,7 @@ else:
 # Subtract out average 
 for i in tqdm(range(0, 100000), ascii=True):
     train[i] = train[i]-avg_img
-
+"""
 # Load validation data
 validData = np.load('validData.npz')
 valid = validData['arr_0']
@@ -263,4 +263,5 @@ with tf.Session() as sess:
                     pass
     
     # Save the weights after all the training has been done
-    saver.save(sess, "conv_final.ckpt")                   
+    saver.save(sess, "conv_final.ckpt")  
+"""                 
