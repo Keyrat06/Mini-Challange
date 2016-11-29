@@ -3,14 +3,14 @@ import os
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
-from Model import model
+from Model_BigWideInception import model
 #import matplotlib.pyplot as plt
 
 # Set parameters
 np.random.seed(0)
 tf.set_random_seed(0)
 batchSize = 70
-epochs = 30 # Epoch here is defined to be 100k images
+epochs = 10 # Epoch here is defined to be 100k images
 toSave = True
 
 '''
@@ -95,7 +95,7 @@ cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
 global_step = tf.Variable(0.0, trainable=False)
 ''' Activate either one for exponential decay/constant rate '''
 learning_rate = tf.train.exponential_decay(1e-4, global_step,
-                                           1000.0, 0.96, staircase=True)
+                                           700.0, 0.96, staircase=True)
 
 ''' Activate this to use adaptive gradient '''
 
@@ -181,7 +181,7 @@ with tf.Session() as sess:
             
             
             # These print the predicted labels and actual label as a np_array
-            
+            '''
             train_acc1, train_acc5, train_pred5 = \
             sess.run([accuracy1, accuracy5, model_pred5],
                      {x: trainBatch,
@@ -189,12 +189,12 @@ with tf.Session() as sess:
                       keep_prob: 1.0})
             temp = np.concatenate((train_pred5[0:50:10], np.transpose([trainLabelBatch[0:50:10]])), axis=1)
             print(temp) 
-            
+            '''
             
             # Valid data
             validBatchbatch = random.sample(range(validSize),batchSize)
-            validAcc1, validAcc5, end_point = \
-            sess.run([accuracy1, accuracy5, end_points],
+            validAcc1, validAcc5 = \
+            sess.run([accuracy1, accuracy5],
                      {x: valid[validBatchbatch],
                       y_: validlabels[validBatchbatch],
                       keep_prob: 1.0})
@@ -227,16 +227,16 @@ with tf.Session() as sess:
             totalAcc1 = 0
             totalAcc5 = 0
             for j in tqdm(range(0, batchesForValidation), ascii=True):
-                validAcc1, validAcc5, validPred1, validPred5 = \
-                    sess.run([accuracy1, accuracy5, model_pred1, model_pred5],
+                validAcc1, validAcc5 = \
+                    sess.run([accuracy1, accuracy5],
                              {x: valid[j*validBatchSize:(j+1)*validBatchSize],
                               y_: validlabels[j*validBatchSize:(j+1)*validBatchSize],
                               keep_prob: 1.0})
-                totalAcc1 += validAcc1*50.0
-                totalAcc5 += validAcc5*50.0
+                totalAcc1 += validAcc1
+                totalAcc5 += validAcc5
                 
-            validation_acc1 = totalAcc1/validSize
-            validation_acc5 = totalAcc5/validSize
+            validation_acc1 = totalAcc1/batchesForValidation
+            validation_acc5 = totalAcc5/batchesForValidation
             print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
             
             # Write to file

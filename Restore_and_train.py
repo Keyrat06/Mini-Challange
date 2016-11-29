@@ -3,7 +3,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
-from Model import model
+from Model_BigWideInception import model
 #import matplotlib.pyplot as plt
 
 # Set parameters
@@ -12,7 +12,7 @@ tf.set_random_seed(0)
 batchSize = 70
 epochs = 20 # Epoch here is defined to be 100k images
 toSave = True
-chkpt_name = 'conv_best.ckpt'
+chkpt_name = 'conv2a_partial.ckpt'
 
 # Load train data
 trainData = np.load('trainData.npz')
@@ -70,8 +70,8 @@ cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
 #Set learning rate
 global_step = tf.Variable(0.0, trainable=False)
 ''' Activate either one for exponential decay/constant rate '''
-learning_rate = tf.train.exponential_decay(1e-4, global_step,
-                                           750.0, 0.96, staircase=True)
+learning_rate = tf.train.exponential_decay(4e-5, global_step,
+                                           250.0, 0.96, staircase=True)
 #learning_rate = 2.5e-5 # Comment this line off if you don't want fixed rate
 
 ''' Activate this to use adaptive gradient '''
@@ -89,10 +89,10 @@ with tf.Session() as sess:
     numBatchesPerEpoch = trainSize//batchSize
 
     # Initialize
-    best_loss = sess.run([cross_entropy],
-                    feed_dict={x: train[0:50],
-                                y_: train[0:50],
-                                keep_prob: 0.5
+    best_loss = sess.run(cross_entropy,
+                    feed_dict={ x: train[0:50],
+                                y_: trainlabels[0:50],
+                                keep_prob: 1.0
                                 });
     loss_val = best_loss
     last_i = 0
@@ -105,7 +105,7 @@ with tf.Session() as sess:
     f = open('trainingStatus.txt', 'a')
     f2 = open('trainingLoss.txt', 'a')
           
-    for i in range(numBatchesPerEpoch*epochs):
+    for i in range(11401, numBatchesPerEpoch*epochs):
         # Set up training batch
         batch = random.sample(range(trainSize),batchSize)
         trainBatch = train[batch]
@@ -180,6 +180,7 @@ with tf.Session() as sess:
             batchesForValidation = validSize//validBatchSize
             totalAcc1 = 0
             totalAcc5 = 0
+            count = 0
             for j in tqdm(range(0, batchesForValidation), ascii=True):
                 validAcc1, validAcc5, validPred1, validPred5 = \
                     sess.run([accuracy1, accuracy5, model_pred1, model_pred5],
@@ -188,9 +189,9 @@ with tf.Session() as sess:
                               keep_prob: 1.0})
                 totalAcc1 += validAcc1*50.0
                 totalAcc5 += validAcc5*50.0
-                
-            validation_acc1 = totalAcc1/validSize
-            validation_acc5 = totalAcc5/validSize
+                count += len(valid[j*validBatchSize:(j+1)*validBatchSize])
+            validation_acc1 = totalAcc1/count
+            validation_acc5 = totalAcc5/count
             print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
             
             # Write to file
