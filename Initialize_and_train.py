@@ -12,10 +12,13 @@ np.random.seed(0)
 tf.set_random_seed(0)
 batchSize = 70
 <<<<<<< HEAD
+<<<<<<< HEAD
 epochs = 20 # Epoch here is defined to be 100k images
 toSave = True
 
 =======
+=======
+>>>>>>> master
 epochs = 30 # Epoch here is defined to be 100k images
 toSave = True
 
@@ -72,16 +75,22 @@ y_ = tf.placeholder(tf.int32, [None])
 keep_prob = tf.placeholder("float")
 packer = model(x, keep_prob) # model is being used here
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 # unpack results
 y_logit = packer['y_logit']
 end_points = packer['end_points']
 regularizable_para = packer['regularizable_para']
 =======
+=======
+>>>>>>> master
 y_logit = packer['y_logit']
 end_points = packer['end_points']
 regularizable_para = packer['regularizable_para']
 aux_logits = packer['aux_logits']
+<<<<<<< HEAD
+>>>>>>> master
+=======
 >>>>>>> master
 
 # Define accuracy for evaluation purposes
@@ -98,6 +107,7 @@ cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
                                     y_logit, #logits 
                                     y_       #actual class labels
                                 ))
+<<<<<<< HEAD
 <<<<<<< HEAD
 #Set learning rate
 global_step = tf.Variable(0.0, trainable=False)
@@ -123,6 +133,16 @@ aux_cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logit
 #Set learning rate
 global_step = tf.Variable(0.0, trainable=False)
 ''' Activate either one for exponential decay/constant rate '''
+=======
+aux_cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+                                    aux_logits, #logits 
+                                    y_       #actual class labels
+                                ))
+
+#Set learning rate
+global_step = tf.Variable(0.0, trainable=False)
+''' Activate either one for exponential decay/constant rate '''
+>>>>>>> master
 learning_rate = tf.train.exponential_decay(5e-4, global_step,
                                            2000.0, 0.96, staircase=True)
 #learning_rate = 2.5e-5 # Comment this line off if you don't want fixed rate
@@ -137,6 +157,9 @@ train_step = tf.train.GradientDescentOptimizer(
 train_step_aux = tf.train.GradientDescentOptimizer(5e-5).minimize(aux_cross_entropy)
 
 
+<<<<<<< HEAD
+>>>>>>> master
+=======
 >>>>>>> master
 # Set up saver
 saver = tf.train.Saver()
@@ -171,6 +194,7 @@ with tf.Session() as sess:
         
         # Run one iteration of training
 <<<<<<< HEAD
+<<<<<<< HEAD
         if i<11416:
             _, loss_val = sess.run([train_step, cross_entropy],
                                    feed_dict={x: trainBatch, 
@@ -184,6 +208,8 @@ with tf.Session() as sess:
                                               keep_prob: 0.5
                                               })
 =======
+=======
+>>>>>>> master
         if (i<3000):
             sess.run([train_step_aux],
                      feed_dict={x: trainBatch,
@@ -236,7 +262,11 @@ with tf.Session() as sess:
             
             # These print the predicted labels and actual label as a np_array
 <<<<<<< HEAD
+<<<<<<< HEAD
             '''
+=======
+            
+>>>>>>> master
 =======
             
 >>>>>>> master
@@ -248,6 +278,7 @@ with tf.Session() as sess:
             temp = np.concatenate((train_pred5[0:50:10], np.transpose([trainLabelBatch[0:50:10]])), axis=1)
             print(temp) 
 <<<<<<< HEAD
+<<<<<<< HEAD
             '''
             
             # Valid data
@@ -255,12 +286,17 @@ with tf.Session() as sess:
             validAcc1, validAcc5 = \
             sess.run([accuracy1, accuracy5],
 =======
+=======
+>>>>>>> master
             
             
             # Valid data
             validBatchbatch = random.sample(range(validSize),batchSize)
             validAcc1, validAcc5, end_point = \
             sess.run([accuracy1, accuracy5, end_points],
+<<<<<<< HEAD
+>>>>>>> master
+=======
 >>>>>>> master
                      {x: valid[validBatchbatch],
                       y_: validlabels[validBatchbatch],
@@ -295,6 +331,7 @@ with tf.Session() as sess:
             totalAcc5 = 0
             for j in tqdm(range(0, batchesForValidation), ascii=True):
 <<<<<<< HEAD
+<<<<<<< HEAD
                 validAcc1, validAcc5 = \
                     sess.run([accuracy1, accuracy5],
                              {x: valid[j*validBatchSize:(j+1)*validBatchSize],
@@ -303,6 +340,8 @@ with tf.Session() as sess:
                 totalAcc1 += validAcc1*batchSize
                 totalAcc5 += validAcc1*batchSize
 =======
+=======
+>>>>>>> master
                 validAcc1, validAcc5, validPred1, validPred5 = \
                     sess.run([accuracy1, accuracy5, model_pred1, model_pred5],
                              {x: valid[j*validBatchSize:(j+1)*validBatchSize],
@@ -310,6 +349,9 @@ with tf.Session() as sess:
                               keep_prob: 1.0})
                 totalAcc1 += validAcc1*50.0
                 totalAcc5 += validAcc5*50.0
+<<<<<<< HEAD
+>>>>>>> master
+=======
 >>>>>>> master
                 
             validation_acc1 = totalAcc1/validSize
