@@ -57,6 +57,7 @@ def conv2d(inputs,
        num_filters_out,
        kernel_size,
        stride=1,
+       batch_normalize = False,
        padding='SAME',
        name = ''):
     global regularizable_para
@@ -76,7 +77,8 @@ def conv2d(inputs,
     conv = tf.nn.conv2d(inputs, weights, [1, stride_h, stride_w, 1],
                         padding=padding)
     # Batch normalize conv
-    #conv = batch_norm(conv)
+    if batch_normalize:
+        conv = batch_norm(conv)
     # Add bias then elu
     outputs = tf.nn.elu(tf.nn.bias_add(conv, biases))
     
@@ -124,20 +126,21 @@ def batch_norm(inputs,
                moving_vars='moving_vars'):
     inputs_shape = inputs.get_shape()
     
-    with tf.variable_op_scope([inputs], 'BatchNorm'):
+    with tf.variable_scope('BatchNorm', values=[inputs]):
         axis = list(range(len(inputs_shape) - 1))
         params_shape = inputs_shape[-1:]
         
         moving_mean = tf.Variable(tf.zeros(params_shape, name='moving_mean'))
         moving_variance = tf.Variable(tf.ones(params_shape, name='moving_variance'))
-        beta = tf.Variable(tf.zeros(params_shape, name='beta'))
-        gamma = tf.Variable(tf.ones(params_shape, name='gamma'))
         
-        # Allocate parameters for the beta and gamma of the normalization.
-        if center:
+        if (center):
             beta = tf.Variable(tf.zeros(params_shape, name='beta'))
+        else:
+            beta = None
         if scale:
             gamma = tf.Variable(tf.ones(params_shape, name='gamma'))
+        else:
+            gamma = None
             
         global is_training
         if is_training:
@@ -228,14 +231,14 @@ def model(images,
     # 30 x 30 x 192
     # Inception block 1 #
     with tf.variable_scope('inception_1'):
-        branch1x1 = conv2d(net, 64, [1, 1])
+        branch1x1 = conv2d(net, 64, [1, 1], batch_normalize = True)
         branch5x5 = conv2d(net, 48, [1, 1])
-        branch5x5 = conv2d(branch5x5, 64, [5, 5])
+        branch5x5 = conv2d(branch5x5, 64, [5, 5], batch_normalize = True)
         branch3x3dbl = conv2d(net, 64, [1, 1])
         branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3], batch_normalize = True)
         branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 32, [1, 1])
+        branch_pool = conv2d(branch_pool, 32, [1, 1], batch_normalize = True)
         net = tf.concat(3, [branch1x1, branch5x5, branch3x3dbl, branch_pool])
         end_points['inception_1'] = net
         
@@ -273,8 +276,7 @@ def model(images,
         branch3x3 = conv2d(net, 384, [3, 3], stride=2, padding='VALID')
         branch3x3dbl = conv2d(net, 64, [1, 1])
         branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3],
-                                  stride=2, padding='VALID')
+        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3],stride=2, padding='VALID')
         branch_pool = max_pool(net, [3, 3], stride=2, padding='VALID')
         net = tf.concat(3, [branch3x3, branch3x3dbl, branch_pool])
         end_points['inception_4'] = net
@@ -312,6 +314,10 @@ def model(images,
         branch_pool = conv2d(branch_pool, 192, [1, 1])
         net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
         end_points['inception_6'] = net
+        
+    # Input is now about 15x15x768
+    # Inception block 7
+    net = net + end_points['inception_5'] # direct short-circuit 
     
     with tf.variable_scope('inception_7'):
         branch1x1 = conv2d(net, 192, [1, 1])
@@ -327,7 +333,9 @@ def model(images,
         branch_pool = conv2d(branch_pool, 192, [1, 1])
         net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
         end_points['inception_7'] = net
-        
+
+    # Input is now about 15x15x768
+    # Inception block 8
     with tf.variable_scope('inception_8'):
         branch1x1 = conv2d(net, 192, [1, 1])
         branch7x7 = conv2d(net, 192, [1, 1])
@@ -345,6 +353,8 @@ def model(images,
     
     # Input is now about 15x15x768
     # Inception block 9
+    net = net + end_points['inception_7'] # direct short-circuit
+    
     with tf.variable_scope('inception_9'):
         branch3x3 = conv2d(net, 192, [1, 1])
         branch3x3 = conv2d(branch3x3, 320, [3, 3], stride=2,
@@ -373,7 +383,9 @@ def model(images,
         branch_pool = conv2d(branch_pool, 192, [1, 1])
         net = tf.concat(3, [branch1x1, branch3x3, branch3x3dbl, branch_pool])
         end_points['inception_10'] = net
-    
+
+    # Input is now about 7x7x1280
+    # Inception block 10
     with tf.variable_scope('inception_11'):
         branch1x1 = conv2d(net, 320, [1, 1])
         branch3x3 = conv2d(net, 384, [1, 1])
@@ -393,7 +405,6 @@ def model(images,
     net = avg_pool(net, shape[1:3], padding='VALID', scope='pool')
           
     # Input is now about 30x30x144
-    # Need to flatten convolutional output
     net = tf.nn.dropout(net, keep_prob)
     net = flatten(net)
     

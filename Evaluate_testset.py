@@ -1,12 +1,13 @@
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-from Model_BigWideInception import model
+from Model_BigInception_BN import model
 import matplotlib.pyplot as plt
 
 # Define parameters
 batchsize = 50
-testValidation = False
+runValidation = False
+runTest = True
 displayImage = False
 
 # Define saved model
@@ -16,7 +17,7 @@ chkpt_name = 'conv2a_partial.ckpt'
 # ------------------------------------------------------------
 avg_img = np.load('avg_img.npy')
 ######## Load validation data ############
-if (testValidation):
+if (runValidation):
     validData = np.load('validData.npz')
     valid = validData['arr_0']
     validlabels = validData['arr_1']
@@ -27,13 +28,16 @@ if (testValidation):
         valid[i] = valid[i]-avg_img
 
 ######## Load test set ###################
-testData = np.load('testData.npz')
-test = testData['arr_0']
-test = test.astype('float16')
-# Subtract out average
-print('Converting test set')
-for i in tqdm(range(0, len(test)), ascii=True):
-    test[i] = test[i]-avg_img
+if (runTest):
+    testData = np.load('testData.npz')
+    test = testData['arr_0']
+    test = test.astype('float16')
+    # Subtract out average
+    print('Converting test set')
+    for i in tqdm(range(0, len(test)), ascii=True):
+        test[i] = test[i]-avg_img
+        
+######## Load labels int to string ###################    
 names = {}
 with open('labels.txt','r') as labelFile:
     for i,line in enumerate(labelFile.readlines()):
@@ -68,7 +72,7 @@ with tf.Session() as sess:
     saver.restore(sess, chkpt_name)
     
     # Test model on validation set
-    if (testValidation):
+    if (runValidation):
         totalAcc1 = 0
         totalAcc5 = 0
         f = open('validEval.txt','wb')
@@ -102,42 +106,44 @@ with tf.Session() as sess:
               %(countItems, totalAcc1/countItems, totalAcc5/countItems))
         f.close()
         f2.close()
+        exit
         
     # Run model on images and predict
-    print('Evaluating test set')
-    f = open('testEval.txt','wb')
-    f2 = open('testEval_for_humans.txt','wb')
-    no_of_batches = len(test)//batchsize
-    countItems = 0;
-    for i in tqdm(range(0,no_of_batches), ascii=True):
-        batch = test[i*batchsize:(i+1)*batchsize]
-        testTop5 = sess.run(model_pred5,
-                           {x: batch,
-                            keep_prob: 1.0})
-        countItems+= len(batch)
-        for j in range(0, batchsize):
-            if (j%batchsize==0) & displayImage:
-                plt.imshow((batch[0]+avg_img).astype('uint8'))
-                plt.show()
-                print('test/%08d.jpg %s %s %s %s %s\n' %(i*batchsize+j+1, 
-                                                      names[testTop5[j][0]], 
-                                                      names[testTop5[j][1]],
-                                                      names[testTop5[j][2]],
-                                                      names[testTop5[j][3]],
-                                                      names[testTop5[j][4]],))
-                plt.pause(0.1)
-            f.write('test/%08d.jpg %d %d %d %d %d\n' %(i*batchsize+j+1, 
-                                                      testTop5[j][0], 
-                                                      testTop5[j][1], 
-                                                      testTop5[j][2], 
-                                                      testTop5[j][3], 
-                                                      testTop5[j][4]))
-            f2.write('test/%08d.jpg %s %s %s %s %s\n' %(i*batchsize+j+1, 
-                                                      names[testTop5[j][0]], 
-                                                      names[testTop5[j][1]],
-                                                      names[testTop5[j][2]],
-                                                      names[testTop5[j][3]],
-                                                      names[testTop5[j][4]],))
-    print('Done! %d items processed' %countItems)
-    f.close()
-    f2.close()
+    if (runTest):
+        print('Evaluating test set')
+        f = open('testEval.txt','wb')
+        f2 = open('testEval_for_humans.txt','wb')
+        no_of_batches = len(test)//batchsize
+        countItems = 0;
+        for i in tqdm(range(0,no_of_batches), ascii=True):
+            batch = test[i*batchsize:(i+1)*batchsize]
+            testTop5 = sess.run(model_pred5,
+                               {x: batch,
+                                keep_prob: 1.0})
+            countItems+= len(batch)
+            for j in range(0, batchsize):
+                if (j%batchsize==0) & displayImage:
+                    plt.imshow((batch[0]+avg_img).astype('uint8'))
+                    plt.show()
+                    print('test/%08d.jpg %s %s %s %s %s\n' %(i*batchsize+j+1, 
+                                                          names[testTop5[j][0]], 
+                                                          names[testTop5[j][1]],
+                                                          names[testTop5[j][2]],
+                                                          names[testTop5[j][3]],
+                                                          names[testTop5[j][4]],))
+                    plt.pause(0.1)
+                f.write('test/%08d.jpg %d %d %d %d %d\n' %(i*batchsize+j+1, 
+                                                          testTop5[j][0], 
+                                                          testTop5[j][1], 
+                                                          testTop5[j][2], 
+                                                          testTop5[j][3], 
+                                                          testTop5[j][4]))
+                f2.write('test/%08d.jpg %s %s %s %s %s\n' %(i*batchsize+j+1, 
+                                                          names[testTop5[j][0]], 
+                                                          names[testTop5[j][1]],
+                                                          names[testTop5[j][2]],
+                                                          names[testTop5[j][3]],
+                                                          names[testTop5[j][4]],))
+        print('Done! %d items processed' %countItems)
+        f.close()
+        f2.close()

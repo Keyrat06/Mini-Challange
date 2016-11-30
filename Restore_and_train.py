@@ -3,15 +3,16 @@ import os
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
-from Model_BigWideInception import model
+from Model_BigInception_BN import model
+from scrambleImages import scrambleImages
 #import matplotlib.pyplot as plt
 
 # Set parameters
 np.random.seed(0)
 tf.set_random_seed(0)
 batchSize = 70
-epochs = 20 # Epoch here is defined to be 100k images
-toSave = True
+epochs = 30 # Epoch here is defined to be 100k images
+toSave = False
 chkpt_name = 'conv2a_partial.ckpt'
 
 # Load train data
@@ -58,7 +59,7 @@ _ , model_pred1 = tf.nn.top_k(y_softmax, 1)
 _ , model_pred5 = tf.nn.top_k(y_softmax, 5)
 correct1 = tf.reduce_any(tf.equal(model_pred1, tf.expand_dims(y_, 1)), 1)
 correct5 = tf.reduce_any(tf.equal(model_pred5, tf.expand_dims(y_, 1)), 1)
-accuracy1 = tf.reduce_sum(tf.cast(correct1, tf.float32))/batchSize   
+accuracy1 = tf.reduce_sum(tf.cast(correct1, tf.float32))/batchSize
 accuracy5 = tf.reduce_sum(tf.cast(correct5, tf.float32))/batchSize
 
 # Set loss function (cross entropy)
@@ -70,8 +71,8 @@ cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
 #Set learning rate
 global_step = tf.Variable(0.0, trainable=False)
 ''' Activate either one for exponential decay/constant rate '''
-learning_rate = tf.train.exponential_decay(4e-5, global_step,
-                                           250.0, 0.96, staircase=True)
+learning_rate = tf.train.exponential_decay(1e-5, global_step,
+                                           200.0, 0.96, staircase=True)
 #learning_rate = 2.5e-5 # Comment this line off if you don't want fixed rate
 
 ''' Activate this to use adaptive gradient '''
@@ -90,13 +91,14 @@ with tf.Session() as sess:
 
     # Initialize
     best_loss = sess.run(cross_entropy,
-                    feed_dict={ x: train[0:50],
-                                y_: trainlabels[0:50],
+                    feed_dict={ x: train[0:100000:2000],
+                                y_: trainlabels[0:100000:2000],
                                 keep_prob: 1.0
                                 });
     loss_val = best_loss
     last_i = 0
-        
+    train_acc5 = 0
+    
     # Compute number of steps before saving
     save_per_steps = 100000//2//batchSize # Define how many steps to run before saving. Default is 50k images
     print('Saving model every %d steps' %save_per_steps)
@@ -105,18 +107,25 @@ with tf.Session() as sess:
     f = open('trainingStatus.txt', 'a')
     f2 = open('trainingLoss.txt', 'a')
           
-    for i in range(11401, numBatchesPerEpoch*epochs):
+    for i in range(19265, numBatchesPerEpoch*epochs):
         # Set up training batch
         batch = random.sample(range(trainSize),batchSize)
         trainBatch = train[batch]
         trainLabelBatch = trainlabels[batch]
         
         # Run one iteration of training
-        _, loss_val = sess.run([train_step, cross_entropy], 
-                               feed_dict={x: trainBatch, 
-                                          y_: trainLabelBatch, 
-                                          keep_prob: 0.5
-                                          })
+        if train_acc5<0.1:
+            _, loss_val = sess.run([train_step, cross_entropy],
+                                   feed_dict={x: trainBatch, 
+                                              y_: np.transpose(trainLabelBatch), 
+                                              keep_prob: 0.5
+                                              })
+        else:
+            _, loss_val = sess.run([train_step, cross_entropy],
+                                   feed_dict={x: scrambleImages(trainBatch), 
+                                              y_: np.transpose(trainLabelBatch), 
+                                              keep_prob: 0.5
+                                              })
                 
         # If we seem to have reached a good model, save it
         if (loss_val<=0.95*best_loss) & (loss_val<4.5) & (i - last_i >20):
@@ -150,11 +159,11 @@ with tf.Session() as sess:
             '''
             
             # Valid data
-            validBatchbatch = random.sample(range(validSize),batchSize)
-            validAcc1, validAcc5, end_point = \
-            sess.run([accuracy1, accuracy5, end_points],
-                     {x: valid[validBatchbatch],
-                      y_: validlabels[validBatchbatch],
+            validBatch = random.sample(range(validSize),batchSize)
+            validAcc1, validAcc5 = \
+            sess.run([accuracy1, accuracy5],
+                     {x: valid[validBatch],
+                      y_: validlabels[validBatch],
                       keep_prob: 1.0})
             try:
                 print("%6d. loss = %s (lr: %g) acc: %.5f / %.5f | %.5f / %.5f" \
@@ -166,37 +175,7 @@ with tf.Session() as sess:
             f2.write("%d, %.4f, %.5f, %.5f, %.5f, %.5f\n" %(i, loss_val, train_acc1, train_acc5, validAcc1, validAcc5))
             
         # Record accuracy & save checkpoint
-        if (i % save_per_steps == 0) & (i>0) :    
-            # Check accuracy on train set
-            train_acc1, train_acc5, pred1, pred5 = \
-            sess.run([accuracy1, accuracy5, model_pred1, model_pred5],
-                     {x: trainBatch,
-                      y_: trainLabelBatch, 
-                      keep_prob: 1.0})
-            print("Training acc: %.5f /%.5f" %(train_acc1,train_acc5))
-            
-            # And now the validation set
-            validBatchSize = 50
-            batchesForValidation = validSize//validBatchSize
-            totalAcc1 = 0
-            totalAcc5 = 0
-            count = 0
-            for j in tqdm(range(0, batchesForValidation), ascii=True):
-                validAcc1, validAcc5, validPred1, validPred5 = \
-                    sess.run([accuracy1, accuracy5, model_pred1, model_pred5],
-                             {x: valid[j*validBatchSize:(j+1)*validBatchSize],
-                              y_: validlabels[j*validBatchSize:(j+1)*validBatchSize],
-                              keep_prob: 1.0})
-                totalAcc1 += validAcc1*50.0
-                totalAcc5 += validAcc5*50.0
-                count += len(valid[j*validBatchSize:(j+1)*validBatchSize])
-            validation_acc1 = totalAcc1/count
-            validation_acc5 = totalAcc5/count
-            print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
-            
-            # Write to file
-            f.write("%5.2f, %.6f, %.6f \n" %(i, validation_acc1, validation_acc5))
-            
+        if (i % save_per_steps == 0) & (i>0):
             # Save variables checkpoint
             print("Saving model checkpoint..")
             try:
@@ -206,6 +185,34 @@ with tf.Session() as sess:
                 pass
                 print("Model failed to save :(")
 
+            # Check accuracy on train batch
+            train_acc1, train_acc5 = \
+            sess.run([accuracy1, accuracy5],
+                     {x: trainBatch,
+                      y_: trainLabelBatch, 
+                      keep_prob: 1.0})
+            print("Training acc: %.5f /%.5f" %(train_acc1,train_acc5))
+            
+            # And now the validation set
+            validBatchSize = 50
+            batchesForValidation = len(valid)//validBatchSize
+            totalAcc1 = 0
+            totalAcc5 = 0
+            count = 0
+            for j in tqdm(range(0, batchesForValidation), ascii=True):
+                validAcc1, validAcc5, validtop5 = sess.run([accuracy1, accuracy5, model_pred5],
+                                            {x: valid[j*validBatchSize:(j+1)*validBatchSize],
+                                             y_: validlabels[j*validBatchSize:(j+1)*validBatchSize],
+                                             keep_prob: 1.0})
+                totalAcc1 += validAcc1*batchSize
+                totalAcc5 += validAcc5*batchSize
+            validation_acc1 = totalAcc1/validSize
+            validation_acc5 = totalAcc5/validSize
+            print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
+            
+            # Write to file
+            f.write("%5.2f, %.6f, %.6f \n" %(i, validation_acc1, validation_acc5))
+            
         # Save checkpoint AND remove previous checkpoint to save space (~150MB per file). 
         # Done on every epoch
         if i%(100000//batchSize)==0 & i>0:

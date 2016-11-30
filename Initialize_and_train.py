@@ -3,23 +3,17 @@ import os
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
-from Model_BigWideInception import model
+from Model_BigInception_BN import model
+from scrambleImages import scrambleImages
 #import matplotlib.pyplot as plt
 
 # Set parameters
 np.random.seed(0)
 tf.set_random_seed(0)
 batchSize = 70
-epochs = 10 # Epoch here is defined to be 100k images
+epochs = 20 # Epoch here is defined to be 100k images
 toSave = True
 
-'''
-def to_onehot(labels, nclasses=100):
-    outlabels = np.zeros((len(labels), nclasses))
-    for i, l in enumerate(labels):
-        outlabels[i, l] = 1
-    return outlabels
-'''
 #--------------------NOTES------------------------#
 '''
 TO BE DONE: 
@@ -57,13 +51,6 @@ valid = valid.astype('float16')
 for i in tqdm(range(0, 10000), ascii=True):
     valid[i] = valid[i]-avg_img
 
-# Load test set. We don't need it for now (save loading time)
-#testData = np.load('testData.npz')
-#test = testData['arr_0']
-# names = [""]*100
-# with open('labels.txt','r') as labelFile:
-#     for i,line in enumerate(labelFile.readlines()):
-#         names[i] = line.strip('\n')
 
 # -------------------- SETUP UP ACTUAL TRAINING ---------------
 # Use model
@@ -95,7 +82,7 @@ cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
 global_step = tf.Variable(0.0, trainable=False)
 ''' Activate either one for exponential decay/constant rate '''
 learning_rate = tf.train.exponential_decay(1e-4, global_step,
-                                           700.0, 0.96, staircase=True)
+                                           750.0, 0.96, staircase=True)
 
 ''' Activate this to use adaptive gradient '''
 
@@ -138,11 +125,18 @@ with tf.Session() as sess:
         trainLabelBatch = trainlabels[batch]
         
         # Run one iteration of training
-        _, loss_val = sess.run([train_step, cross_entropy], 
-                               feed_dict={x: trainBatch, 
-                                          y_: np.transpose(trainLabelBatch), 
-                                          keep_prob: 0.5
-                                          })
+        if i<11416:
+            _, loss_val = sess.run([train_step, cross_entropy],
+                                   feed_dict={x: trainBatch, 
+                                              y_: np.transpose(trainLabelBatch), 
+                                              keep_prob: 0.5
+                                              })
+        else:
+            _, loss_val = sess.run([train_step, cross_entropy],
+                                   feed_dict={x: scrambleImages(trainBatch), 
+                                              y_: np.transpose(trainLabelBatch), 
+                                              keep_prob: 0.5
+                                              })
                 
         # If we seem to have reached a good model, save it
         if (loss_val<=0.95*best_loss) & (loss_val<4.5) & (i - last_i >20) & toSave:
@@ -232,11 +226,11 @@ with tf.Session() as sess:
                              {x: valid[j*validBatchSize:(j+1)*validBatchSize],
                               y_: validlabels[j*validBatchSize:(j+1)*validBatchSize],
                               keep_prob: 1.0})
-                totalAcc1 += validAcc1
-                totalAcc5 += validAcc5
+                totalAcc1 += validAcc1*batchSize
+                totalAcc5 += validAcc1*batchSize
                 
-            validation_acc1 = totalAcc1/batchesForValidation
-            validation_acc5 = totalAcc5/batchesForValidation
+            validation_acc1 = totalAcc1/validSize
+            validation_acc5 = totalAcc5/validSize
             print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
             
             # Write to file
