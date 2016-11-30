@@ -5,7 +5,6 @@ import math
 from scipy import ndimage
 
 regularizable_para = 0
-<<<<<<< HEAD
 
 regularizable_para = 0
 
@@ -83,33 +82,6 @@ def scrambleImages(images):
     #   images[i] = np.flipud(images[i])
 
 
-=======
-
-#-------------------HELPER FUNCTIONS-------------#
-
-def scrambleImages(images):
-  for i in range(len(images)):
-    whatToDo = random.randint(0, 3):
-    if whatToDo == 0:
-      pass
-    elif whatToDo == 1: #flip horizontally
-      images[i] = np.fliplr(images[i])
-    elif whatToDo == 2: #add Noise
-      row,col,ch= images[i].shape
-      mean = 0
-      sigma = .05
-      guass = np.random.normal(mean,sigma,(row,col,ch))
-      images[i] = images[i] + guass
-    elif whatToDo == 3: #blur image
-      images[i] = ndimage.gaussian_filter(images[i], 3)
-
-
-    # Vertical flip might not be a good idea
-    # elif whatToDo == 4: #flip vertically
-    #   images[i] = np.flipud(images[i])
-
-
->>>>>>> master
 def _two_element_tuple(int_or_tuple):
   """Converts `int_or_tuple` to height, width.
 
@@ -157,16 +129,12 @@ def max_pool(inputs, kernel_size, stride=2, padding='VALID', name=None):
                           strides=[1, stride_h, stride_w, 1],
                           padding=padding)
 
-<<<<<<< HEAD
->>>>>>> master
-=======
 >>>>>>> master
 def conv2d(inputs,
        num_filters_out,
        kernel_size,
        stride=1,
        padding='SAME',
-<<<<<<< HEAD
 <<<<<<< HEAD
        name = ''):
     global regularizable_para
@@ -205,8 +173,6 @@ def fully_connected_layer(inputs, num_output_units, name='full_layer'):
     regularizable_para += tf.reduce_sum(tf.square(weights))
     return outputs
 =======
-=======
->>>>>>> master
        scope=None,
        name = 'conv2d'):
     global regularizable_para
@@ -235,9 +201,6 @@ def fully_connected_layer(inputs, num_output_units, keep_prob =1.0, name='full_l
         return tf.nn.dropout(output, keep_prob)
     else:
         return output
-<<<<<<< HEAD
->>>>>>> master
-=======
 >>>>>>> master
     
 def layer_variable(shape, name=None):
@@ -257,10 +220,6 @@ def final_avg_pool(inputs, name=None):
     return tf.reshape(y_logit, [-1, y_logit.get_shape()[-1].value])
 '''
 <<<<<<< HEAD
-<<<<<<< HEAD
-=======
-
->>>>>>> master
 =======
 
 >>>>>>> master
@@ -275,11 +234,7 @@ def avg_pool(inputs,
     stride_h, stride_w = _two_element_tuple(stride)
     
 <<<<<<< HEAD
-<<<<<<< HEAD
     return tf.nn.avg_pool(inputs,
-=======
-    return tf.nn.avg_pool(inputs, 
->>>>>>> master
 =======
     return tf.nn.avg_pool(inputs, 
 >>>>>>> master
@@ -288,10 +243,7 @@ def avg_pool(inputs,
                              padding = padding)
 
 <<<<<<< HEAD
-<<<<<<< HEAD
 =======
-=======
->>>>>>> master
 # Original function written by Raoul. 
 # ChiHeem: Not general enough for inception models. I will write the blocks in the main model
 def generalised_naive_inception(inputs, sizeAndShapes, name=''):
@@ -321,9 +273,6 @@ def generalised_naive_inception(inputs, sizeAndShapes, name=''):
             out = tf.nn.conv2d(inputs, W, strides=[1, 1, 1, 1], padding='SAME')
             outPuts.append(out)
         return tf.concat(3, outPuts), outputSize   
-<<<<<<< HEAD
->>>>>>> master
-=======
 >>>>>>> master
 
 #--------------------MODEL DEFN--------------------#
@@ -340,11 +289,7 @@ def model(images,
     
     # 128 X 128 X 32
 <<<<<<< HEAD
-<<<<<<< HEAD
     end_points['conv2'] = conv2d(end_points['conv1'], 32, [3,3], name='conv2')#
-=======
-    end_points['conv2'] = conv2d(end_points['conv1'], 32, [5,5], name='conv2')#
->>>>>>> master
 =======
     end_points['conv2'] = conv2d(end_points['conv1'], 32, [5,5], name='conv2')#
 >>>>>>> master
@@ -364,11 +309,7 @@ def model(images,
     
     # 62 X 62 X 80 
 <<<<<<< HEAD
-<<<<<<< HEAD
     end_points['conv5'] = conv2d(end_points['conv4'], 128, [3,3], name='conv5')#
-=======
-    end_points['conv5'] = conv2d(end_points['conv4'], 192, [3,3], name='conv5')#
->>>>>>> master
 =======
     end_points['conv5'] = conv2d(end_points['conv4'], 192, [3,3], name='conv5')#
 >>>>>>> master
@@ -381,7 +322,6 @@ def model(images,
                                    name='pool2')
     
     net = end_points['pool2']
-<<<<<<< HEAD
 <<<<<<< HEAD
     
     # Auxiliary heads
@@ -587,151 +527,6 @@ def model(images,
     return {'y_logit':y_logit, 'end_points':end_points, 
             'regularizable_para':regularizable_para}#, 'aux_logits':aux_logits}
 =======
-=======
-    
-    # Auxiliary heads
-    aux_logits = net
-    #6x6x192
-    aux_logits = avg_pool(aux_logits, [5, 5], stride=5,
-                            padding='VALID')
-    #6x6x128
-    aux_logits = conv2d(aux_logits, 128, [1, 1], scope='proj')
-    # Shape of feature map before the final layer.
-    shape = aux_logits.get_shape()
-    # 1x1x768
-    aux_logits = conv2d(aux_logits, 768, [shape[1].value,shape[2].value],
-                          padding='VALID')
-    aux_logits = tf.reshape(aux_logits, [-1,768])
-    aux_logits = tf.nn.dropout(aux_logits, 0.8)
-    aux_logits = flatten(aux_logits)
-    aux_logits = fully_connected_layer(aux_logits,
-                                       100,
-                                       1.0,
-                                       name = 'auxiliary_layer')
-    end_points['aux_logits'] = aux_logits
-    
-    # 30 x 30 x 192
-    # Inception block 1 #
-    inception1_branch1x1 = conv2d(net, 64, [1, 1])
-    inception1_branch5x5 = conv2d(net, 48, [1, 1])
-    inception1_branch5x5 = conv2d(inception1_branch5x5, 64, [5, 5])
-    inception1_branch3x3dbl = conv2d(net, 64, [1, 1])
-    inception1_branch3x3dbl = conv2d(inception1_branch3x3dbl, 96, [3, 3])
-    inception1_branch3x3dbl = conv2d(inception1_branch3x3dbl, 96, [3, 3])
-    inception1_branch_pool = avg_pool(net, [3, 3])
-    inception1_branch_pool = conv2d(inception1_branch_pool, 32, [1, 1])
-    net = tf.concat(3, [inception1_branch1x1, inception1_branch5x5, inception1_branch3x3dbl, inception1_branch_pool])
-    end_points['inception_block1'] = net
-    
-    # 30 x 30 x 128
-    # Inception block 2
-    inception2_branch1x1 = conv2d(net, 64, [1, 1])
-    inception2_branch5x5 = conv2d(net, 48, [1, 1])
-    inception2_branch5x5 = conv2d(inception2_branch5x5, 64, [5, 5])
-    inception2_branch3x3dbl = conv2d(net, 64, [1, 1])
-    inception2_branch3x3dbl = conv2d(inception2_branch3x3dbl, 96, [3, 3])
-    inception2_branch3x3dbl = conv2d(inception2_branch3x3dbl, 96, [3, 3])
-    inception2_branch_pool = avg_pool(net, [3, 3])
-    inception2_branch_pool = conv2d(inception2_branch_pool, 64, [1, 1])
-    net = tf.concat(3, [inception2_branch1x1, inception2_branch5x5, inception2_branch3x3dbl, inception2_branch_pool])
-    end_points['inception_block2'] = net
-    
-    # Input is now about 30x30x288
-    # Inception block 3
-    inception3_branch1x1 = conv2d(net, 96, [1, 1])
-    inception3_branch7x7 = conv2d(net, 80, [1, 1])
-    inception3_branch7x7 = conv2d(inception3_branch7x7, 80, [1, 7])
-    inception3_branch7x7 = conv2d(inception3_branch7x7, 96, [7, 1])
-    inception3_branch7x7dbl = conv2d(net, 80, [1, 1])
-    inception3_branch7x7dbl = conv2d(inception3_branch7x7dbl, 80, [7, 1])
-    inception3_branch7x7dbl = conv2d(inception3_branch7x7dbl, 80, [1, 7])
-    inception3_branch7x7dbl = conv2d(inception3_branch7x7dbl, 80, [7, 1])
-    inception3_branch7x7dbl = conv2d(inception3_branch7x7dbl, 96, [1, 7])
-    inception3_branch_pool = avg_pool(net, [3, 3])
-    inception3_branch_pool = conv2d(inception3_branch_pool, 96, [1, 1])
-    net = tf.concat(3, [inception3_branch1x1, inception3_branch7x7, inception3_branch7x7dbl, inception3_branch_pool])
-    end_points['inception_block3'] = net
-    
-    # Input is now about 30x30x384
-    # Inception block 4
-    inception4_branch3x3 = conv2d(net, 192, [3, 3], stride=2, padding='VALID')
-    inception4_branch3x3dbl = conv2d(net, 32, [1, 1])
-    inception4_branch3x3dbl = conv2d(inception4_branch3x3dbl, 48, [3, 3])
-    inception4_branch3x3dbl = conv2d(inception4_branch3x3dbl, 48, [3, 3],
-                              stride=2, padding='VALID')
-    inception4_branch_pool = max_pool(net, [3, 3], stride=2, padding='VALID')
-    net = tf.concat(3, [inception4_branch3x3, inception4_branch3x3dbl, inception4_branch_pool])
-    end_points['inception_block4'] = net
-    
-    # Input is now about 15x15x768
-    # Inception block 6 #
-    inception5_branch1x1 = conv2d(net, 192, [1, 1])
-    inception5_branch7x7 = conv2d(net, 160, [1, 1])
-    inception5_branch7x7 = conv2d(inception5_branch7x7, 160, [1, 7])
-    inception5_branch7x7 = conv2d(inception5_branch7x7, 192, [7, 1])
-    inception5_branch7x7dbl = conv2d(net, 160, [1, 1])
-    inception5_branch7x7dbl = conv2d(inception5_branch7x7dbl, 160, [7, 1])
-    inception5_branch7x7dbl = conv2d(inception5_branch7x7dbl, 160, [1, 7])
-    inception5_branch7x7dbl = conv2d(inception5_branch7x7dbl, 160, [7, 1])
-    inception5_branch7x7dbl = conv2d(inception5_branch7x7dbl, 192, [1, 7])
-    inception5_branch_pool = avg_pool(net, [3, 3])
-    inception5_branch_pool = conv2d(inception5_branch_pool, 192, [1, 1])
-    net = tf.concat(3, [inception5_branch1x1, inception5_branch7x7, inception5_branch7x7dbl, inception5_branch_pool])
-    end_points['inception5'] = net
-    
-    # Input is now about 15x15x384
-    # Inception block 5
-    inception6_branch1x1 = conv2d(net, 192, [1, 1])
-    inception6_branch7x7 = conv2d(net, 192, [1, 1])
-    inception6_branch7x7 = conv2d(inception6_branch7x7, 192, [1, 7])
-    inception6_branch7x7 = conv2d(inception6_branch7x7, 192, [7, 1])
-    inception6_branch7x7dbl = conv2d(net, 96, [1, 1])
-    inception6_branch7x7dbl = conv2d(inception6_branch7x7dbl, 192, [7, 1])
-    inception6_branch7x7dbl = conv2d(inception6_branch7x7dbl, 192, [1, 7])
-    inception6_branch7x7dbl = conv2d(inception6_branch7x7dbl, 192, [7, 1])
-    inception6_branch7x7dbl = conv2d(inception6_branch7x7dbl, 192, [1, 7])
-    inception6_branch_pool = avg_pool(net, [3, 3])
-    inception6_branch_pool = conv2d(inception6_branch_pool, 192, [1, 1])
-    net = tf.concat(3, [inception6_branch1x1, inception6_branch7x7, inception6_branch7x7dbl, inception6_branch_pool])
-    end_points['inception6'] = net
-    
-    # Input is now about 15x15x768
-    # Inception block 6
-    inception7_branch3x3 = conv2d(net, 192, [1, 1])
-    inception7_branch3x3 = conv2d(inception7_branch3x3, 320, [3, 3], stride=2,
-                           padding='VALID')
-    inception7_branch7x7x3branch3x3 = conv2d(net, 192, [1, 1])
-    inception7_branch7x7x3branch3x3 = conv2d(inception7_branch7x7x3branch3x3, 192, [1, 7])
-    inception7_branch7x7x3branch3x3 = conv2d(inception7_branch7x7x3branch3x3, 192, [7, 1])
-    inception7_branch7x7x3branch3x3 = conv2d(inception7_branch7x7x3branch3x3, 192, [3, 3],
-                             stride=2, padding='VALID')
-    inception7_inception7_branch_pool = max_pool(net, [3, 3], stride=2, padding='VALID')
-    net = tf.concat(3, [inception7_branch3x3, inception7_branch7x7x3branch3x3, inception7_inception7_branch_pool])
-    end_points['inception7'] = net
-    
-    # Input is now about 7x7x1280
-    # Inception block 7
-    inception8_branch1x1 = conv2d(net, 320, [1, 1])
-    inception8_branch3x3 = conv2d(net, 384, [1, 1])
-    inception8_branch3x3 = tf.concat(3, [conv2d(inception8_branch3x3, 384, [1, 3]),
-                            conv2d(inception8_branch3x3, 384, [3, 1])])
-    inception8_branch3x3dbl = conv2d(net, 448, [1, 1])
-    inception8_branch3x3dbl = conv2d(inception8_branch3x3dbl, 384, [3, 3])
-    inception8_branch3x3dbl = tf.concat(3, [conv2d(inception8_branch3x3dbl, 384, [1, 3]),
-                               conv2d(inception8_branch3x3dbl, 384, [3, 1])])
-    inception8_branch_pool = avg_pool(net, [3, 3])
-    inception8_branch_pool = conv2d(inception8_branch_pool, 192, [1, 1])
-    net = tf.concat(3, [inception8_branch1x1, inception8_branch3x3, inception8_branch3x3dbl, inception8_branch_pool])
-    end_points['inception8'] = net
-    
-    # Average pooling; force it to 1x1x1280
-    shape = net.get_shape()
-    net = avg_pool(net, shape[1:3], padding='VALID', scope='pool')
-          
-    # Input is now about 30x30x144
-    # Need to flatten convolutional output
-    net = tf.nn.dropout(net, keep_prob)
->>>>>>> master
     net = flatten(end_points['inception_block2'])
     
     # Hidden Layer
@@ -742,7 +537,4 @@ def model(images,
     
     return {'y_logit':y_logit, 'end_points':end_points, 
             'regularizable_para':regularizable_para, 'aux_logits':aux_logits}
-<<<<<<< HEAD
->>>>>>> master
-=======
 >>>>>>> master

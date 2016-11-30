@@ -1,6 +1,5 @@
 import numpy as np
 import tensorflow as tf
-<<<<<<< HEAD
 from tqdm import tqdm
 from Model_BigInception_BN import model
 import matplotlib.pyplot as plt
@@ -40,8 +39,6 @@ if (runTest):
         
 ######## Load labels int to string ###################    
 =======
-=======
->>>>>>> master
 from Model_CRAZY import model
 
 # Define saved model
@@ -50,15 +47,11 @@ chkpt_name = 'Model.ckpt'
 # Load test set. We don't need it for now (save loading time)
 testData = np.load('testData.npz')
 test = testData['arr_0']
-<<<<<<< HEAD
->>>>>>> master
-=======
 >>>>>>> master
 names = {}
 with open('labels.txt','r') as labelFile:
     for i,line in enumerate(labelFile.readlines()):
         names[i] = line.strip('\n')
-<<<<<<< HEAD
 <<<<<<< HEAD
 
 ######## DEFINITION ######################
@@ -86,8 +79,6 @@ accuracy5 = tf.reduce_sum(tf.cast(correct5, tf.float32))/batchsize
 
 with tf.Session() as sess:
 =======
-=======
->>>>>>> master
         
 
 # Use model
@@ -104,15 +95,11 @@ f = open('testEval.txt','wb')
 
 with tf.Session() as sess:
     print('Evaluating...')
-<<<<<<< HEAD
->>>>>>> master
-=======
 >>>>>>> master
     # Restore trained model
     saver = tf.train.Saver()
     saver.restore(sess, chkpt_name)
     
-<<<<<<< HEAD
 <<<<<<< HEAD
     # Test model on validation set
     if (runValidation):
@@ -190,21 +177,3 @@ with tf.Session() as sess:
         print('Done! %d items processed' %countItems)
         f.close()
         f2.close()
-=======
-    # Evaluate model 
-    no_of_batches = len(test)//50
-    for i in range(0,no_of_batches):
-        batch = test[i*50:(i+1)*50]
-        values, indices = sess.run(model_pred5,
-                        {x: batch,
-                         keep_prob: 1.0})
-        for j in range(0, 50):
-            f.write('test/%08d.jpg %d %d %d %d %d\n' %(j, 
-                                                      indices[j][0], 
-                                                      indices[j][1], 
-                                                      indices[j][2], 
-                                                      indices[j][3], 
-                                                      indices[j][4]))
-
-print('Done!')
->>>>>>> master
