@@ -52,7 +52,7 @@ for i in tqdm(range(0, 100000), ascii=True):
 validData = np.load('validData.npz')
 valid = validData['arr_0']
 validlabels = validData['arr_1']
-valid = valid.astype('float16')
+valid = valid.astype('float32')
 # Subtract out average 
 for i in tqdm(range(0, 10000), ascii=True):
     valid[i] = valid[i]-avg_img
