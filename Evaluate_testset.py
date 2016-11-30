@@ -38,21 +38,10 @@ if (runTest):
         test[i] = test[i]-avg_img
         
 ######## Load labels int to string ###################    
-=======
-from Model_CRAZY import model
-
-# Define saved model
-chkpt_name = 'Model.ckpt'
-
-# Load test set. We don't need it for now (save loading time)
-testData = np.load('testData.npz')
-test = testData['arr_0']
->>>>>>> master
 names = {}
 with open('labels.txt','r') as labelFile:
     for i,line in enumerate(labelFile.readlines()):
         names[i] = line.strip('\n')
-<<<<<<< HEAD
 
 ######## DEFINITION ######################
 
@@ -78,29 +67,10 @@ accuracy1 = tf.reduce_sum(tf.cast(correct1, tf.float32))/batchsize
 accuracy5 = tf.reduce_sum(tf.cast(correct5, tf.float32))/batchsize
 
 with tf.Session() as sess:
-=======
-        
-
-# Use model
-x = tf.placeholder(tf.float32, [None, 128, 128, 3])
-keep_prob = tf.placeholder("float")
-y_logit, end_points = model(x, 1.0) # model is being used here
-y_softmax = tf.nn.softmax(y_logit)
-
-# Define predictor
-model_pred5 = tf.nn.top_k(y_softmax, 5)
-
-# Run model on images and predict
-f = open('testEval.txt','wb')
-
-with tf.Session() as sess:
-    print('Evaluating...')
->>>>>>> master
     # Restore trained model
     saver = tf.train.Saver()
     saver.restore(sess, chkpt_name)
     
-<<<<<<< HEAD
     # Test model on validation set
     if (runValidation):
         totalAcc1 = 0
