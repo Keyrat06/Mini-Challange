@@ -1,27 +1,16 @@
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-from Model_BigWideInception import model
+import Model_BigInception_BN
+import Model_BigWideInception
 import matplotlib.pyplot as plt
 import itertools
 
 # Define parameters
 batchsize = 50
-testValidation = False
-displayImage = False
 
 # ------------------------------------------------------------
 avg_img = np.load('avg_img.npy')
-######## Load validation data ############
-if (testValidation):
-    validData = np.load('validData.npz')
-    valid = validData['arr_0']
-    validlabels = validData['arr_1']
-    valid = valid.astype('float16')
-    # Subtract out average 
-    print('Converting validation set')
-    for i in tqdm(range(0, 10000), ascii=True):
-        valid[i] = valid[i]-avg_img
 
 ######## Load test set ###################
 testData = np.load('testData.npz')
@@ -39,21 +28,22 @@ with open('labels.txt','r') as labelFile:
 ######## DEFINITION ######################
 
 # Define saved models
-models = ['conv2a_partial.ckpt', 'conv2a_partial.ckpt']
+#models = ['conv2a_partial.ckpt', 'conv2a_partial_2.ckpt']
+models = [{'name': 'conv_best.ckpt', 'arch': 'BigWideInception'},
+          {'name': 'conv_best_2.ckpt', 'arch': 'BigInception_BN'}]
 
 # Use model
 x = tf.placeholder(tf.float32, [None, 128, 128, 3])
 y_ = tf.placeholder(tf.int32, [None])
 keep_prob = tf.placeholder("float")
-packer = model(x, keep_prob) # model is being used here
 
-# Unpack results
-y_logit = packer['y_logit']
-end_points = packer['end_points']
-regularizable_para = packer['regularizable_para']
+softmax_outs = {}
 
-# Transform logits into softmax values
-y_softmax = tf.nn.softmax(y_logit)
+packer = Model_BigWideInception.model(x, keep_prob)
+softmax_outs['BigWideInception'] = tf.nn.softmax(packer['y_logit'])
+
+packer = Model_BigInception_BN.model(x, keep_prob)
+softmax_outs['BigInception_BN'] = tf.nn.softmax(packer['y_logit'])
 
 def predict_scenes(sm):
     sm = tf.constant(sm, shape=[len(models), len(test), 100])
@@ -69,14 +59,14 @@ sm = []
 for m in models:    
     with tf.Session() as sess:
         # Restore trained model
-        saver = tf.train.Saver()
-        saver.restore(sess, m)
+        saver = tf.train.Saver([v for v in tf.all_variables() if v.name.startswith(m['arch'])])
+        saver.restore(sess, m['name'])
             
         # Run model on images and predict
         no_of_batches = len(test)//batchsize
         for i in tqdm(range(0,no_of_batches), ascii=True):
             batch = test[i*batchsize:(i+1)*batchsize]
-            softmax = sess.run(y_softmax, {x: batch, keep_prob: 1.0})
+            softmax = sess.run(softmax_outs[m['arch']], {x: batch, keep_prob: 1.0})
             sm.append(list(itertools.chain.from_iterable(softmax))) 
 
 testTop5 = predict_scenes(sm)

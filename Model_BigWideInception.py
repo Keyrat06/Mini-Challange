@@ -130,238 +130,238 @@ def avg_pool(inputs,
 def model(images, 
           keep_prob, 
           scope=''):
-    
-    global regularizable_para
-    end_points = {}
-   
-    # 128 X 128 X 3
-    # Conv layer 1
-    end_points['conv1'] = conv2d(images, 48, [7,7], name='conv1')#
-    
-    # 128 X 128 X 32
-    end_points['conv2'] = conv2d(end_points['conv1'], 48, [5,5], name='conv2')#
-    
-    # 126 X 126 X 32
-    end_points['conv3'] = conv2d(end_points['conv2'], 64, [3,3], name='conv3')#
-    
-    # 126 X 126 X 64
-    #3x3 Max pooling, no padding on edges
-    end_points['pool1'] =  max_pool(end_points['conv3'], 
-                                   kernel_size = 3, 
-                                   stride =2, 
-                                   name='pool1')
-    
-    # 62 X 62 X 64
-    end_points['conv4'] = conv2d(end_points['pool1'], 80, [1,1], name='conv4')#
-    
-    # 62 X 62 X 80 
-    end_points['conv5'] = conv2d(end_points['conv4'], 192, [3,3], name='conv5')#
-    
-    # 60 X 60 X 192
-    # 3x3 Max pooling, no padding on edges
-    end_points['pool2'] = max_pool(end_points['conv5'], 
-                                   kernel_size = 3, 
-                                   stride = 2, 
-                                   name='pool2')
-    
-    net = end_points['pool2']
-    
-    # Auxiliary heads
-    '''
-    aux_logits = net
-    #6x6x192
-    aux_logits = avg_pool(aux_logits, [5, 5], stride=5,
-                            padding='VALID')
-    #6x6x128
-    aux_logits = conv2d(aux_logits, 128, [1, 1])
-    # Shape of feature map before the final layer.
-    shape = aux_logits.get_shape()
-    # 1x1x768
-    aux_logits = conv2d(aux_logits, 768, [shape[1].value,shape[2].value],
-                          padding='VALID')
-    aux_logits = tf.reshape(aux_logits, [-1,768])
-    aux_logits = tf.nn.dropout(aux_logits, 0.8)
-    aux_logits = flatten(aux_logits)
-    aux_logits = fully_connected_layer(aux_logits,
-                                       100,
-                                       name = 'auxiliary_layer')
-    end_points['aux_logits'] = aux_logits
-    '''
-    
-    # 30 x 30 x 192
-    # Inception block 1 #
-    with tf.variable_scope('inception_1'):
-        branch1x1 = conv2d(net, 64, [1, 1])
-        branch5x5 = conv2d(net, 48, [1, 1])
-        branch5x5 = conv2d(branch5x5, 64, [5, 5])
-        branch3x3dbl = conv2d(net, 64, [1, 1])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 32, [1, 1])
-        net = tf.concat(3, [branch1x1, branch5x5, branch3x3dbl, branch_pool])
-        end_points['inception_1'] = net
+    with tf.variable_scope('BigWideInception'):
+        global regularizable_para
+        end_points = {}
+       
+        # 128 X 128 X 3
+        # Conv layer 1
+        end_points['conv1'] = conv2d(images, 48, [7,7], name='conv1')#
         
-    # 30 x 30 x 128
-    # Inception block 2
-    with tf.variable_scope('inception_2'):
-        branch1x1 = conv2d(net, 64, [1, 1])
-        branch5x5 = conv2d(net, 48, [1, 1])
-        branch5x5 = conv2d(branch5x5, 64, [5, 5])
-        branch3x3dbl = conv2d(net, 64, [1, 1])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 64, [1, 1])
-        net = tf.concat(3, [branch1x1, branch5x5, branch3x3dbl, branch_pool])
-        end_points['inception_2'] = net
+        # 128 X 128 X 32
+        end_points['conv2'] = conv2d(end_points['conv1'], 48, [5,5], name='conv2')#
         
-    # Input is now about 30x30x288
-    # Inception block 3
-    with tf.variable_scope('inception_3'):
-        branch1x1 = conv2d(net, 64, [1, 1])
-        branch5x5 = conv2d(net, 48, [1, 1])
-        branch5x5 = conv2d(branch5x5, 64, [5, 5])
-        branch3x3dbl = conv2d(net, 64, [1, 1])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 64, [1, 1])
-        net = tf.concat(3, [branch1x1, branch5x5, branch3x3dbl, branch_pool])
-        end_points['inception_3'] = net
+        # 126 X 126 X 32
+        end_points['conv3'] = conv2d(end_points['conv2'], 64, [3,3], name='conv3')#
         
-    # Input is now about 30x30x384
-    # Inception block 4
-    with tf.variable_scope('inception_4'):
-        branch3x3 = conv2d(net, 384, [3, 3], stride=2, padding='VALID')
-        branch3x3dbl = conv2d(net, 64, [1, 1])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
-        branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3],
-                                  stride=2, padding='VALID')
-        branch_pool = max_pool(net, [3, 3], stride=2, padding='VALID')
-        net = tf.concat(3, [branch3x3, branch3x3dbl, branch_pool])
-        end_points['inception_4'] = net
+        # 126 X 126 X 64
+        #3x3 Max pooling, no padding on edges
+        end_points['pool1'] =  max_pool(end_points['conv3'], 
+                                       kernel_size = 3, 
+                                       stride =2, 
+                                       name='pool1')
         
-    # Input is now about 15x15x768
-    # Inception block 5 #
-    with tf.variable_scope('inception_5'):
-        branch1x1 = conv2d(net, 192, [1, 1])
-        branch7x7 = conv2d(net, 128, [1, 1])
-        branch7x7 = conv2d(branch7x7, 128, [1, 7])
-        branch7x7 = conv2d(branch7x7, 192, [7, 1])
-        branch7x7dbl = conv2d(net, 128, [1, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 128, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 128, [1, 7])
-        branch7x7dbl = conv2d(branch7x7dbl, 128, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 192, [1, 1])
-        net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
-        end_points['inception_5'] = net
-
-    # Input is now about 15x15x384
-    # Inception block 6
-    with tf.variable_scope('inception_6'):
-        branch1x1 = conv2d(net, 192, [1, 1])
-        branch7x7 = conv2d(net, 160, [1, 1])
-        branch7x7 = conv2d(branch7x7, 160, [1, 7])
-        branch7x7 = conv2d(branch7x7, 192, [7, 1])
-        branch7x7dbl = conv2d(net, 160, [1, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 160, [1, 7])
-        branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 192, [1, 1])
-        net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
-        end_points['inception_6'] = net
-    
-    with tf.variable_scope('inception_7'):
-        branch1x1 = conv2d(net, 192, [1, 1])
-        branch7x7 = conv2d(net, 160, [1, 1])
-        branch7x7 = conv2d(branch7x7, 160, [1, 7])
-        branch7x7 = conv2d(branch7x7, 192, [7, 1])
-        branch7x7dbl = conv2d(net, 160, [1, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 160, [1, 7])
-        branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 192, [1, 1])
-        net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
-        end_points['inception_7'] = net
+        # 62 X 62 X 64
+        end_points['conv4'] = conv2d(end_points['pool1'], 80, [1,1], name='conv4')#
         
-    with tf.variable_scope('inception_8'):
-        branch1x1 = conv2d(net, 192, [1, 1])
-        branch7x7 = conv2d(net, 192, [1, 1])
-        branch7x7 = conv2d(branch7x7, 192, [1, 7])
-        branch7x7 = conv2d(branch7x7, 192, [7, 1])
-        branch7x7dbl = conv2d(net, 192, [1, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 192, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
-        branch7x7dbl = conv2d(branch7x7dbl, 192, [7, 1])
-        branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 192, [1, 1])
-        net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
-        end_points['inception_8'] = net
+        # 62 X 62 X 80 
+        end_points['conv5'] = conv2d(end_points['conv4'], 192, [3,3], name='conv5')#
+        
+        # 60 X 60 X 192
+        # 3x3 Max pooling, no padding on edges
+        end_points['pool2'] = max_pool(end_points['conv5'], 
+                                       kernel_size = 3, 
+                                       stride = 2, 
+                                       name='pool2')
+        
+        net = end_points['pool2']
+        
+        # Auxiliary heads
+        '''
+        aux_logits = net
+        #6x6x192
+        aux_logits = avg_pool(aux_logits, [5, 5], stride=5,
+                                padding='VALID')
+        #6x6x128
+        aux_logits = conv2d(aux_logits, 128, [1, 1])
+        # Shape of feature map before the final layer.
+        shape = aux_logits.get_shape()
+        # 1x1x768
+        aux_logits = conv2d(aux_logits, 768, [shape[1].value,shape[2].value],
+                              padding='VALID')
+        aux_logits = tf.reshape(aux_logits, [-1,768])
+        aux_logits = tf.nn.dropout(aux_logits, 0.8)
+        aux_logits = flatten(aux_logits)
+        aux_logits = fully_connected_layer(aux_logits,
+                                           100,
+                                           name = 'auxiliary_layer')
+        end_points['aux_logits'] = aux_logits
+        '''
+        
+        # 30 x 30 x 192
+        # Inception block 1 #
+        with tf.variable_scope('inception_1'):
+            branch1x1 = conv2d(net, 64, [1, 1])
+            branch5x5 = conv2d(net, 48, [1, 1])
+            branch5x5 = conv2d(branch5x5, 64, [5, 5])
+            branch3x3dbl = conv2d(net, 64, [1, 1])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 32, [1, 1])
+            net = tf.concat(3, [branch1x1, branch5x5, branch3x3dbl, branch_pool])
+            end_points['inception_1'] = net
+            
+        # 30 x 30 x 128
+        # Inception block 2
+        with tf.variable_scope('inception_2'):
+            branch1x1 = conv2d(net, 64, [1, 1])
+            branch5x5 = conv2d(net, 48, [1, 1])
+            branch5x5 = conv2d(branch5x5, 64, [5, 5])
+            branch3x3dbl = conv2d(net, 64, [1, 1])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 64, [1, 1])
+            net = tf.concat(3, [branch1x1, branch5x5, branch3x3dbl, branch_pool])
+            end_points['inception_2'] = net
+            
+        # Input is now about 30x30x288
+        # Inception block 3
+        with tf.variable_scope('inception_3'):
+            branch1x1 = conv2d(net, 64, [1, 1])
+            branch5x5 = conv2d(net, 48, [1, 1])
+            branch5x5 = conv2d(branch5x5, 64, [5, 5])
+            branch3x3dbl = conv2d(net, 64, [1, 1])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 64, [1, 1])
+            net = tf.concat(3, [branch1x1, branch5x5, branch3x3dbl, branch_pool])
+            end_points['inception_3'] = net
+            
+        # Input is now about 30x30x384
+        # Inception block 4
+        with tf.variable_scope('inception_4'):
+            branch3x3 = conv2d(net, 384, [3, 3], stride=2, padding='VALID')
+            branch3x3dbl = conv2d(net, 64, [1, 1])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3])
+            branch3x3dbl = conv2d(branch3x3dbl, 96, [3, 3],
+                                      stride=2, padding='VALID')
+            branch_pool = max_pool(net, [3, 3], stride=2, padding='VALID')
+            net = tf.concat(3, [branch3x3, branch3x3dbl, branch_pool])
+            end_points['inception_4'] = net
+            
+        # Input is now about 15x15x768
+        # Inception block 5 #
+        with tf.variable_scope('inception_5'):
+            branch1x1 = conv2d(net, 192, [1, 1])
+            branch7x7 = conv2d(net, 128, [1, 1])
+            branch7x7 = conv2d(branch7x7, 128, [1, 7])
+            branch7x7 = conv2d(branch7x7, 192, [7, 1])
+            branch7x7dbl = conv2d(net, 128, [1, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 128, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 128, [1, 7])
+            branch7x7dbl = conv2d(branch7x7dbl, 128, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 192, [1, 1])
+            net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
+            end_points['inception_5'] = net
     
-    # Input is now about 15x15x768
-    # Inception block 9
-    with tf.variable_scope('inception_9'):
-        branch3x3 = conv2d(net, 192, [1, 1])
-        branch3x3 = conv2d(branch3x3, 320, [3, 3], stride=2,
-                               padding='VALID')
-        branch7x7x3branch3x3 = conv2d(net, 192, [1, 1])
-        branch7x7x3branch3x3 = conv2d(branch7x7x3branch3x3, 192, [1, 7])
-        branch7x7x3branch3x3 = conv2d(branch7x7x3branch3x3, 192, [7, 1])
-        branch7x7x3branch3x3 = conv2d(branch7x7x3branch3x3, 192, [3, 3],
-                                 stride=2, padding='VALID')
-        branch_pool = max_pool(net, [3, 3], stride=2, padding='VALID')
-        net = tf.concat(3, [branch3x3, branch7x7x3branch3x3, branch_pool])
-        end_points['inception_9'] = net
-    
-    # Input is now about 7x7x1280
-    # Inception block 10
-    with tf.variable_scope('inception_10'):
-        branch1x1 = conv2d(net, 320, [1, 1])
-        branch3x3 = conv2d(net, 384, [1, 1])
-        branch3x3 = tf.concat(3, [conv2d(branch3x3, 384, [1, 3]),
-                                conv2d(branch3x3, 384, [3, 1])])
-        branch3x3dbl = conv2d(net, 448, [1, 1])
-        branch3x3dbl = conv2d(branch3x3dbl, 384, [3, 3])
-        branch3x3dbl = tf.concat(3, [conv2d(branch3x3dbl, 384, [1, 3]),
-                                   conv2d(branch3x3dbl, 384, [3, 1])])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 192, [1, 1])
-        net = tf.concat(3, [branch1x1, branch3x3, branch3x3dbl, branch_pool])
-        end_points['inception_10'] = net
-    
-    with tf.variable_scope('inception_11'):
-        branch1x1 = conv2d(net, 320, [1, 1])
-        branch3x3 = conv2d(net, 384, [1, 1])
-        branch3x3 = tf.concat(3, [conv2d(branch3x3, 384, [1, 3]),
-                                conv2d(branch3x3, 384, [3, 1])])
-        branch3x3dbl = conv2d(net, 448, [1, 1])
-        branch3x3dbl = conv2d(branch3x3dbl, 384, [3, 3])
-        branch3x3dbl = tf.concat(3, [conv2d(branch3x3dbl, 384, [1, 3]),
-                                   conv2d(branch3x3dbl, 384, [3, 1])])
-        branch_pool = avg_pool(net, [3, 3])
-        branch_pool = conv2d(branch_pool, 192, [1, 1])
-        net = tf.concat(3, [branch1x1, branch3x3, branch3x3dbl, branch_pool])
-        end_points['inception_11'] = net
-    
-    # Average pooling; force it to 1x1x1280
-    shape = net.get_shape()
-    net = avg_pool(net, shape[1:3], padding='VALID', scope='pool')
-          
-    # Input is now about 30x30x144
-    # Need to flatten convolutional output
-    net = tf.nn.dropout(net, keep_prob)
-    net = flatten(net)
-    
-    # Hidden Layer
-    y_logit = fully_connected_layer(net,100,name = 'output_layer')
-    
-    return {'y_logit':y_logit, 'end_points':end_points, 
-            'regularizable_para':regularizable_para}#, 'aux_logits':aux_logits}
+        # Input is now about 15x15x384
+        # Inception block 6
+        with tf.variable_scope('inception_6'):
+            branch1x1 = conv2d(net, 192, [1, 1])
+            branch7x7 = conv2d(net, 160, [1, 1])
+            branch7x7 = conv2d(branch7x7, 160, [1, 7])
+            branch7x7 = conv2d(branch7x7, 192, [7, 1])
+            branch7x7dbl = conv2d(net, 160, [1, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 160, [1, 7])
+            branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 192, [1, 1])
+            net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
+            end_points['inception_6'] = net
+        
+        with tf.variable_scope('inception_7'):
+            branch1x1 = conv2d(net, 192, [1, 1])
+            branch7x7 = conv2d(net, 160, [1, 1])
+            branch7x7 = conv2d(branch7x7, 160, [1, 7])
+            branch7x7 = conv2d(branch7x7, 192, [7, 1])
+            branch7x7dbl = conv2d(net, 160, [1, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 160, [1, 7])
+            branch7x7dbl = conv2d(branch7x7dbl, 160, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 192, [1, 1])
+            net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
+            end_points['inception_7'] = net
+            
+        with tf.variable_scope('inception_8'):
+            branch1x1 = conv2d(net, 192, [1, 1])
+            branch7x7 = conv2d(net, 192, [1, 1])
+            branch7x7 = conv2d(branch7x7, 192, [1, 7])
+            branch7x7 = conv2d(branch7x7, 192, [7, 1])
+            branch7x7dbl = conv2d(net, 192, [1, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 192, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
+            branch7x7dbl = conv2d(branch7x7dbl, 192, [7, 1])
+            branch7x7dbl = conv2d(branch7x7dbl, 192, [1, 7])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 192, [1, 1])
+            net = tf.concat(3, [branch1x1, branch7x7, branch7x7dbl, branch_pool])
+            end_points['inception_8'] = net
+        
+        # Input is now about 15x15x768
+        # Inception block 9
+        with tf.variable_scope('inception_9'):
+            branch3x3 = conv2d(net, 192, [1, 1])
+            branch3x3 = conv2d(branch3x3, 320, [3, 3], stride=2,
+                                   padding='VALID')
+            branch7x7x3branch3x3 = conv2d(net, 192, [1, 1])
+            branch7x7x3branch3x3 = conv2d(branch7x7x3branch3x3, 192, [1, 7])
+            branch7x7x3branch3x3 = conv2d(branch7x7x3branch3x3, 192, [7, 1])
+            branch7x7x3branch3x3 = conv2d(branch7x7x3branch3x3, 192, [3, 3],
+                                     stride=2, padding='VALID')
+            branch_pool = max_pool(net, [3, 3], stride=2, padding='VALID')
+            net = tf.concat(3, [branch3x3, branch7x7x3branch3x3, branch_pool])
+            end_points['inception_9'] = net
+        
+        # Input is now about 7x7x1280
+        # Inception block 10
+        with tf.variable_scope('inception_10'):
+            branch1x1 = conv2d(net, 320, [1, 1])
+            branch3x3 = conv2d(net, 384, [1, 1])
+            branch3x3 = tf.concat(3, [conv2d(branch3x3, 384, [1, 3]),
+                                    conv2d(branch3x3, 384, [3, 1])])
+            branch3x3dbl = conv2d(net, 448, [1, 1])
+            branch3x3dbl = conv2d(branch3x3dbl, 384, [3, 3])
+            branch3x3dbl = tf.concat(3, [conv2d(branch3x3dbl, 384, [1, 3]),
+                                       conv2d(branch3x3dbl, 384, [3, 1])])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 192, [1, 1])
+            net = tf.concat(3, [branch1x1, branch3x3, branch3x3dbl, branch_pool])
+            end_points['inception_10'] = net
+        
+        with tf.variable_scope('inception_11'):
+            branch1x1 = conv2d(net, 320, [1, 1])
+            branch3x3 = conv2d(net, 384, [1, 1])
+            branch3x3 = tf.concat(3, [conv2d(branch3x3, 384, [1, 3]),
+                                    conv2d(branch3x3, 384, [3, 1])])
+            branch3x3dbl = conv2d(net, 448, [1, 1])
+            branch3x3dbl = conv2d(branch3x3dbl, 384, [3, 3])
+            branch3x3dbl = tf.concat(3, [conv2d(branch3x3dbl, 384, [1, 3]),
+                                       conv2d(branch3x3dbl, 384, [3, 1])])
+            branch_pool = avg_pool(net, [3, 3])
+            branch_pool = conv2d(branch_pool, 192, [1, 1])
+            net = tf.concat(3, [branch1x1, branch3x3, branch3x3dbl, branch_pool])
+            end_points['inception_11'] = net
+        
+        # Average pooling; force it to 1x1x1280
+        shape = net.get_shape()
+        net = avg_pool(net, shape[1:3], padding='VALID', scope='pool')
+              
+        # Input is now about 30x30x144
+        # Need to flatten convolutional output
+        net = tf.nn.dropout(net, keep_prob)
+        net = flatten(net)
+        
+        # Hidden Layer
+        y_logit = fully_connected_layer(net,100,name = 'output_layer')
+        
+        return {'y_logit':y_logit, 'end_points':end_points, 
+                'regularizable_para':regularizable_para}#, 'aux_logits':aux_logits}
