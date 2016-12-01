@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # Define parameters
 batchsize = 50
-runValidation = False
+runValidation = True
 runTest = True
 displayImage = False
 
@@ -63,8 +63,8 @@ _ , model_pred1 = tf.nn.top_k(y_softmax, 1)
 _ , model_pred5 = tf.nn.top_k(y_softmax, 5)
 correct1 = tf.reduce_any(tf.equal(model_pred1, tf.expand_dims(y_, 1)), 1)
 correct5 = tf.reduce_any(tf.equal(model_pred5, tf.expand_dims(y_, 1)), 1)
-accuracy1 = tf.reduce_sum(tf.cast(correct1, tf.float32))/batchsize
-accuracy5 = tf.reduce_sum(tf.cast(correct5, tf.float32))/batchsize
+accuracy1 = tf.reduce_mean(tf.cast(correct1, tf.float32))
+accuracy5 = tf.reduce_mean(tf.cast(correct5, tf.float32))
 
 with tf.Session() as sess:
     # Restore trained model
@@ -79,16 +79,13 @@ with tf.Session() as sess:
         f2 = open('validEval_for_humans.txt','wb')
         print('Evaluating validation set')
         batchesForValidation = len(valid)//batchsize
-        countItems = 0;
         for i in tqdm(range(0, batchesForValidation), ascii=True):
             validAcc1, validAcc5, validtop5 = sess.run([accuracy1, accuracy5, model_pred5],
                                             {x: valid[i*batchsize:(i+1)*batchsize],
                                              y_: validlabels[i*batchsize:(i+1)*batchsize],
                                              keep_prob: 1.0})
-            length = len(valid[i*batchsize:(i+1)*batchsize])
-            countItems+= length
-            totalAcc1 += validAcc1*length
-            totalAcc5 += validAcc5*length
+            totalAcc1 += validAcc1
+            totalAcc5 += validAcc5
             for j in range(0, batchsize):
                 f.write('val/%08d.jpg %d %d %d %d %d\n' %(i*batchsize+j+1, 
                                                           validtop5[j][0], 
@@ -103,7 +100,7 @@ with tf.Session() as sess:
                                                           names[validtop5[j][3]],
                                                           names[validtop5[j][4]],))
         print('Model accuracy over %d items: %.5f %.5f' \
-              %(countItems, totalAcc1/countItems, totalAcc5/countItems))
+              %(len(valid), totalAcc1/batchesForValidation, totalAcc5/batchesForValidation))
         f.close()
         f2.close()
         exit

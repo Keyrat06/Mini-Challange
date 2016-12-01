@@ -49,7 +49,7 @@ else:
 # Subtract out average 
 for i in tqdm(range(0, 100000), ascii=True):
     train[i] = train[i]-avg_img
-"""
+
 # Load validation data
 validData = np.load('validData.npz')
 valid = validData['arr_0']
@@ -78,8 +78,8 @@ _ , model_pred1 = tf.nn.top_k(y_softmax, 1)
 _ , model_pred5 = tf.nn.top_k(y_softmax, 5)
 correct1 = tf.reduce_any(tf.equal(model_pred1, tf.expand_dims(y_, 1)), 1)
 correct5 = tf.reduce_any(tf.equal(model_pred5, tf.expand_dims(y_, 1)), 1)
-accuracy1 = tf.reduce_sum(tf.cast(correct1, tf.float32))/batchSize   
-accuracy5 = tf.reduce_sum(tf.cast(correct5, tf.float32))/batchSize
+accuracy1 = tf.reduce_mean(tf.cast(correct1, tf.float32))
+accuracy5 = tf.reduce_mean(tf.cast(correct5, tf.float32))
 
 # Set loss function (cross entropy)
 cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -234,11 +234,11 @@ with tf.Session() as sess:
                              {x: valid[j*validBatchSize:(j+1)*validBatchSize],
                               y_: validlabels[j*validBatchSize:(j+1)*validBatchSize],
                               keep_prob: 1.0})
-                totalAcc1 += validAcc1*batchSize
-                totalAcc5 += validAcc1*batchSize
+                totalAcc1 += validAcc1
+                totalAcc5 += validAcc5
                 
-            validation_acc1 = totalAcc1/validSize
-            validation_acc5 = totalAcc5/validSize
+            validation_acc1 = totalAcc1/batchesForValidation
+            validation_acc5 = totalAcc5/batchesForValidation
             print("Validation acc: %.5f /%.5f" %(validation_acc1, validation_acc5))
             
             # Write to file
@@ -266,4 +266,3 @@ with tf.Session() as sess:
     
     # Save the weights after all the training has been done
     saver.save(sess, "conv_final.ckpt")  
-"""                 
