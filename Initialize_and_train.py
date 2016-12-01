@@ -1,5 +1,6 @@
 import random
 import os
+import time
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
@@ -8,11 +9,18 @@ from scrambleImages import scrambleImages
 #import matplotlib.pyplot as plt
 
 # Set parameters
-np.random.seed(0)
-tf.set_random_seed(0)
+debug = True
+toSave = True
+
+seed = 0
+if not debug:
+    print('Setting random seed')
+    seed = int(time.time())
+np.random.seed(seed)
+tf.set_random_seed(seed)
+
 batchSize = 70
 epochs = 20 # Epoch here is defined to be 100k images
-toSave = True
 
 #--------------------NOTES------------------------#
 '''
