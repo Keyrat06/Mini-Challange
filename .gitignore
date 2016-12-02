@@ -1,3 +1,7 @@
 *.npz
+*.pyc
+*.swp
+*.ckpt
+*.meta
 .DS_Store
 MNIST_data/
